@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import tensorflow as tf
 import json
 
 # {<id>: [[x, y], [x, y], ...]}

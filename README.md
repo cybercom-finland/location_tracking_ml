@@ -20,9 +20,9 @@ You can plot the data in Octave using:
 
 `p = 5;`
 
-`indices = (pos(p,1,:) < 999); scatter(pos(p,1,indices), pos(p,2,indices));`
+`indices = (abs(pos(p,1,:)) <= 60 & abs(pos(p,2,:)) <= 45); scatter(pos(p,1,indices), pos(p,2,indices));`
 
-Here 5 is the index of the player, and the first command filters out the empty values.
+Here 5 is the index of the player, and the first command filters out the empty and otherwise invalid values.
 
 Screenshot of sample data
 =========================

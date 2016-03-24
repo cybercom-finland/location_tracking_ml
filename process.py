@@ -2,6 +2,7 @@
 
 import tensorflow as tf
 import json
+import itertools
 
 # {<id>: [[x, y], [x, y], ...]}
 positionTracks = dict()
@@ -41,24 +42,19 @@ for id in positionTracks.keys():
 octaveInput += '\n'
 octaveInput += '];\n'
 numberOfPlayers = len(positionTracks.keys());
-octaveInput += 'pos = reshape(pos, ' + str(numberOfPlayers) + ', ' + str(index) + ', 2);\n'
+octaveInput += 'pos = reshape(pos, ' + str(numberOfPlayers) + ', 2, ' + str(index) + ');\n'
 with open('tracks.m', 'w') as octaveFile:
     octaveFile.write(octaveInput)
-# You can draw the track in octave with:
-#  tracks
-#  p = 5;
-#  indices = (max(pos(p,:,1),pos(p,:,2)) < 999); scatter(pos(p,indices,1), pos(p,indices,2));
-# Here 5 is the index of the player, and the first command filters out the empty values.
 
-# Neural network structure and intuition:
-# The neural network should comprise of modules, each estimating the next position of a particular
-# target.
-# These modules should be recurrent to have time dynamics in addition to trivial average flow in field space.
-# The weights should be forced equal so that each module is interchangeable so that:
-# - The weights towards self-input are the same for all modules.
-# - The weights towards inputs other than self are identical.
-# Therefore, all modules learn what one module sees, so the model of one target is used for all targets.
-# The model can learn coordination between targets, that is, formations and complex team dynamics,
-# because the modules get information of the positions of other targets as well.
+# Dividing into training, test and validation set based on time (taking every third sample for each).
+# There are downsides for all methods of dividing the data into sets, this one guarantees some
+# representability both in time of play and in playing role. Proper validation can be done with the other
+# recorded game (note the interval between samples).
+# This is just a simple proof of concept, so we don't take too much headache of this.
 
-# LSTM modules with specially shared weights will be used for this exercise.
+
+input = positionTracks.items()
+train = list(itertools.islice(input, 0, None, 3))
+test = list(itertools.islice(input, 1, None, 3))
+validation = list(itertools.islice(input, 2, None, 3))
+print str(train)

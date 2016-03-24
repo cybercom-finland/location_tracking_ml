@@ -12,13 +12,15 @@ Run `./getData.sh` to get the dataset.
 
 Run `./process.py` to parse the dataset and convert it into Octave format for inspection.
 
+The coordinates x and y are limited by the soccer field size (assumption here): x = [-60, 60], y = [-45, 45].
+
 You can plot the data in Octave using:
 
 `tracks`
 
 `p = 5;`
 
-`indices = (max(pos(p,:,1),pos(p,:,2)) < 999); scatter(pos(p,indices,1), pos(p,indices,2));`
+`indices = (pos(p,1,:) < 999); scatter(pos(p,1,indices), pos(p,2,indices));`
 
 Here 5 is the index of the player, and the first command filters out the empty values.
 

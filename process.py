@@ -48,7 +48,7 @@ with open('tracks.m', 'w') as octaveFile:
 #  tracks
 #  p = 5;
 #  indices = (max(pos(p,:,1),pos(p,:,2)) < 999); scatter(pos(p,indices,1), pos(p,indices,2));
-# Here 5 is the index of the player, and the first lines filter out the bad values.
+# Here 5 is the index of the player, and the first command filters out the empty values.
 
 # Neural network structure and intuition:
 # The neural network should comprise of modules, each estimating the next position of a particular

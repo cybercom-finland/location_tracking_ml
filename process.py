@@ -45,7 +45,6 @@ octaveInput += 'pos = reshape(pos, ' + str(numberOfPlayers) + ', ' + str(index) 
 with open('tracks.m', 'w') as octaveFile:
     octaveFile.write(octaveInput)
 # You can draw the track in octave with:
-#  indices = (pos(5,:,1) < 999);
-#  indices = (pos(5,indices,2) < 999);
-#  scatter(pos(5,indices,1), pos(5,indices,2))
+#  p = 5;
+#  indices = (max(pos(p,:,1),pos(p,:,2)) < 999); scatter(pos(p,indices,1), pos(p,indices,2));
 # Here 5 is the index of the player, and the first lines filter out the bad values.

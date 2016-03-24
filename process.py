@@ -49,3 +49,16 @@ with open('tracks.m', 'w') as octaveFile:
 #  p = 5;
 #  indices = (max(pos(p,:,1),pos(p,:,2)) < 999); scatter(pos(p,indices,1), pos(p,indices,2));
 # Here 5 is the index of the player, and the first lines filter out the bad values.
+
+# Neural network structure and intuition:
+# The neural network should comprise of modules, each estimating the next position of a particular
+# target.
+# These modules should be recurrent to have time dynamics in addition to trivial average flow in field space.
+# The weights should be forced equal so that each module is interchangeable so that:
+# - The weights towards self-input are the same for all modules.
+# - The weights towards inputs other than self are identical.
+# Therefore, all modules learn what one module sees, so the model of one target is used for all targets.
+# The model can learn coordination between targets, that is, formations and complex team dynamics,
+# because the modules get information of the positions of other targets as well.
+
+# LSTM modules with specially shared weights will be used for this exercise.

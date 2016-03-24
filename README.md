@@ -12,7 +12,7 @@ Run `./getData.sh` to get the dataset.
 
 Run `./process.py` to parse the dataset and convert it into Octave format for inspection.
 
-The coordinates x and y are limited by the soccer field size (assumption here): x = [-60, 60], y = [-45, 45].
+The coordinates x and y are limited by the soccer field size (assumption here): x = [-53, 53], y = [-35, 35].
 
 You can plot the data in Octave using:
 
@@ -20,14 +20,16 @@ You can plot the data in Octave using:
 
 `p = 5;`
 
-`indices = (abs(pos(p,1,:)) <= 60 & abs(pos(p,2,:)) <= 45); scatter(pos(p,1,indices), pos(p,2,indices));`
+`indices = (abs(pos(p,1,:)) <= 53 & abs(pos(p,2,:)) <= 35); scatter(pos(p,1,indices), pos(p,2,indices), 2, p);`
 
 Here 5 is the index of the player, and the first command filters out the empty and otherwise invalid values.
 
-Screenshot of sample data
+Screenshots of sample data
 =========================
 
 ![example_track.png](example_track.png)
+
+![first_5_tracks.png](first_5_tracks.png)
 
 Neural network structure and intuition
 ======================================

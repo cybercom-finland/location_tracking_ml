@@ -59,7 +59,7 @@ These modules should be recurrent to have time dynamics in addition to trivial a
 
 The weights should be forced equal so that each module is interchangeable so that:
  * The associated weights towards self-input are the same for all modules.
- * The associated weights towards inputs other than self are identical.
+ * The associated weights towards inputs other than self are similar.
 
 Therefore, the model of one target is used for all targets.
 The model can learn coordination between targets, that is, formations and complex team dynamics,

@@ -41,6 +41,11 @@ The first 5 tracks:
 Neural network structure and intuition
 ======================================
 
+Diagram of the network structure consisting of a bank of identical LSTM modules:
+The shared weights are shown in the same color. The self-input is on red with w1 label.
+
+![diagram.png](diagram.png)
+
 The neural network comprises of a bank of modules, each module estimating the next position of a particular
 target. Exploiting the symmetries in the domain, all modules have identical weights.
 The modules can be trained together, or one module can be trained by each target data in sequence.

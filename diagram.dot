@@ -1,0 +1,27 @@
+digraph d {
+  "target1: x, y, velocity, enabled" [shape=box]
+  "target3: x, y, velocity, enabled" [shape=box]
+  "target2: x, y, velocity, enabled" [shape=box]
+  "LSTM module 1" [shape=box]
+  "LSTM module 3" [shape=box]
+  "LSTM module 2" [shape=box]
+  "target1: predicted x, y" [shape=box]
+  "target3: predicted x, y" [shape=box]
+  "target2: predicted x, y" [shape=box]
+
+  "target1: x, y, velocity, enabled" -> "LSTM module 1" [color=red,label=w1]
+  "target2: x, y, velocity, enabled" -> "LSTM module 1" [color=blue]
+  "target3: x, y, velocity, enabled" -> "LSTM module 1" [color=green]
+
+  "target2: x, y, velocity, enabled" -> "LSTM module 2" [color=red,label=w1]
+  "target1: x, y, velocity, enabled" -> "LSTM module 2" [color=blue]
+  "target3: x, y, velocity, enabled" -> "LSTM module 2" [color=green]
+
+  "target3: x, y, velocity, enabled" -> "LSTM module 3" [color=red,label=w1]
+  "target2: x, y, velocity, enabled" -> "LSTM module 3" [color=blue]
+  "target1: x, y, velocity, enabled" -> "LSTM module 3" [color=green]
+
+  "LSTM module 1" -> "target1: predicted x, y"
+  "LSTM module 2" -> "target2: predicted x, y"
+  "LSTM module 3" -> "target3: predicted x, y"
+}

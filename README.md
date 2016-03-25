@@ -104,6 +104,6 @@ Ideas
 =====
 
  * It might make sense to encode the locations of other targets in the order of distance, and using delta coding instead
-of absolute x and y. Then the non-self targets do not need equal weights.
+of absolute x and y.
  * Another neural network module could be used to predict spawning of new targets. The current data set does not have
    such effects, though.

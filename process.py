@@ -32,7 +32,7 @@ with open('tr-ft.json', 'r') as inputData:
         for pos in datum['data']:
             # Note: The data has 99999.999 for x and y denoting missing position.
             # Leaving them here, because we can't have null values in any case.
-            positionTracks[pos['id']][index] = [pos['x'], pos['y']];
+            positionTracks[pos['id']][index] = [float(pos['x']), float(pos['y'])];
         index += 1
 
 octaveInput = 'pos = [\n'
@@ -55,7 +55,12 @@ with open('tracks.m', 'w') as octaveFile:
 # recorded game (note the interval between samples).
 # This is just a simple proof of concept, so we don't take too much headache of this.
 
-input = positionTracks.items()
+def toTensor(value):
+    if (type(value) is list):
+        return tf.pack(map(toTensor, value))
+    return value;
+
+input = list(positionTracks.itervalues())
 train = list(itertools.islice(input, 0, None, 3))
 test = list(itertools.islice(input, 1, None, 3))
 validation = list(itertools.islice(input, 2, None, 3))
@@ -105,8 +110,8 @@ biases = {
 # Returns a properly shifted input for tracking the given target.
 def makeInputForTargetInd(data, targetInd):
     newData = list(data)
-    newData[0], newData[targetInd] = newData[target], newData[0]
-    return newData
+    newData[0], newData[targetInd] = newData[targetInd], newData[0]
+    return toTensor(newData);
     
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step):
@@ -167,7 +172,7 @@ with tf.Session() as sess:
         # Choosing the target to track
         trainingData = makeInputForTargetInd(train, targetInd)
         while step * batch_size < training_iters:
-            batch_xs, batch_ys = getNextTrainingBatchSequences(trainingData, step - 1)
+            batch_xs, batch_ys = getNextTrainingBatchSequences(trainingData, step - 1, batch_size)
             # Reshape data to get batch_size sequences of n_steps elements with n_input values
             batch_xs = batch_xs.reshape((batch_size, n_steps, n_input))
             # Fit training using batch data

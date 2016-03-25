@@ -66,7 +66,6 @@ validation = list(itertools.islice(input, 2, None, 3))
 # Let's try this first with fully connected LSTM layers. Note that the implementation is not yet
 # as specified in the README. This is work in progress.
 
-batch_size = 20;
 
 # The input is position and velocity for each player. Velocity is 0 if not otherwise possible to calculate.
 # TODO: Flag input for valid or invalid position.
@@ -77,10 +76,15 @@ training_iters = 100000
 display_step = 10
 
 # Network Parameters
+# x, y for 23 targets
+# TODO: Add velocity, enabled flag
 n_input = 23*2
-n_steps = 28 # timesteps
+# The minibatch is 20 sequences of 20 steps.
+batch_size = 20;
+n_steps = 20 # timesteps
 n_hidden = 128 # hidden layer num of features
-n_output = n_input
+# x, y for 23 targets. TODO: Add enabled flag.
+n_output = 23*2
 
 # tf Graph input
 x = tf.placeholder("float", [None, n_steps, n_input])
@@ -98,9 +102,25 @@ biases = {
     'out': tf.Variable(tf.random_normal([n_output]))
 }
 
-def getNextTrainingBatch(step):
-    disp = step * batch_size % (len(train) - (batch_size - 2))
-    return train[disp:disp+batch_size], train[disp+1:disp+batch_size+1]
+# Returns a properly shifted input for tracking the given target.
+def makeInputForTargetInd(data, targetInd):
+    newData = list(data)
+    newData[0], newData[targetInd] = newData[target], newData[0]
+    return newData
+    
+# Returns one sequence of n_steps.
+def getNextTrainingBatch(data, step):
+    disp = step * n_steps % (len(train) - n_steps)
+    return data[:][disp:disp+n_steps], data[0][disp+1:disp+n_steps+1]
+
+def getNextTrainingBatchSequences(data, step, seqs):
+    resultX = []
+    resultY = []
+    for seq in range(0, seqs-1):
+        sequenceX, sequenceY = getNextTrainingBatch(data, step)
+        resultX.append(sequenceX);
+        resultY.append(sequenceY);
+    return resultX, resultY
 
 def RNN(_X, _istate, _weights, _biases):
 
@@ -140,32 +160,35 @@ init = tf.initialize_all_variables()
 with tf.Session() as sess:
     sess.run(init)
     step = 1
-    # Keep training until reach max iterations
+    # Keep training until reach max iterations for each target in the material
     
     # FIXME: This is still work in progress....
-    while False: # step * batch_size < training_iters:
-        batch_xs, batch_ys = getNextTrainingBatch(step - 1)
-        # Reshape data to get 28 seq of 28 elements
-        batch_xs = batch_xs.reshape((batch_size, n_steps, n_input))
-        # Fit training using batch data
-        sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys,
-                                       istate: np.zeros((batch_size, 2*n_hidden))})
-        if step % display_step == 0:
-            # Calculate batch accuracy
-            acc = sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys,
-                                                istate: np.zeros((batch_size, 2*n_hidden))})
-            # Calculate batch loss
-            loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys,
-                                             istate: np.zeros((batch_size, 2*n_hidden))})
-            print "Iter " + str(step*batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss) + \
-                  ", Training Accuracy= " + "{:.5f}".format(acc)
-        step += 1
+    for targetInd in range(0, 22):
+        # Choosing the target to track
+        trainingData = makeInputForTargetInd(train, targetInd)
+        while step * batch_size < training_iters:
+            batch_xs, batch_ys = getNextTrainingBatchSequences(trainingData, step - 1)
+            # Reshape data to get batch_size sequences of n_steps elements with n_input values
+            batch_xs = batch_xs.reshape((batch_size, n_steps, n_input))
+            # Fit training using batch data
+            sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys,
+                                           istate: np.zeros((batch_size, 2*n_hidden))})
+            if step % display_step == 0:
+                # Calculate batch accuracy
+                acc = sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys,
+                                                    istate: np.zeros((batch_size, 2*n_hidden))})
+                # Calculate batch loss
+                loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys,
+                                                 istate: np.zeros((batch_size, 2*n_hidden))})
+                print "Iter " + str(step*batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss) + \
+                     ", Training Accuracy= " + "{:.5f}".format(acc)
+            step += 1
     print "Optimization Finished!"
     # Calculate accuracy for the test data
     test_len = len(test) - 1
     
     # FIXME: This is still work in progress....
-    #test_data = test[:test_len].reshape((-1, n_steps, n_input))
-    #test_label = test[1:test_len + 1]
-    #print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_data, y: test_label,
-    #                                                         istate: np.zeros((test_len, 2*n_hidden))})
+    test_data = test[:test_len].reshape((-1, n_steps, n_input))
+    test_label = test[1:test_len + 1]
+    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_data, y: test_label,
+                                                             istate: np.zeros((test_len, 2*n_hidden))})

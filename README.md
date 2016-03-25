@@ -49,7 +49,7 @@ The shared weights are shown in the same color. The self-input is on red with w1
 The neural network comprises of a bank of modules, each module estimating the next position of a particular
 target. Exploiting the symmetries in the domain, all modules have identical weights.
 The modules can be trained together, or one module can be trained by each target data in sequence.
-Training only one module and cloning it for all the targets if convenient for the situations where the
+Training only one module and cloning it for all the targets is convenient for the situations where the
 number of targets is unknown.
 
 The inputs (and internal states for RNNs) differ per module in the bank respecting the special position for the self-input

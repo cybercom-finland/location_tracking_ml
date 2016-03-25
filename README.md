@@ -30,16 +30,24 @@ Here 5 is the index of the player, and the first command filters out the empty a
 Screenshots of sample data
 =========================
 
+An example track:
+
 ![example_track.png](example_track.png)
+
+The first 5 tracks:
 
 ![first_5_tracks.png](first_5_tracks.png)
 
 Neural network structure and intuition
 ======================================
 
-The neural network should comprise of modules, each estimating the next position of a particular
+The neural network comprises of a bank of modules, each module estimating the next position of a particular
 target. Exploiting the symmetries in the domain, all modules have identical weights.
-The inputs (and internal states for RNNs) differ per module respecting the special position for the self-input
+The modules can be trained together, or one module can be trained by each target data in sequence.
+Training only one module and cloning it for all the targets if convenient for the situations where the
+number of targets is unknown.
+
+The inputs (and internal states for RNNs) differ per module in the bank respecting the special position for the self-input
 corresponding to the input for the target for which this module is predicting the next position.
 
 These modules should be recurrent to have time dynamics in addition to trivial average flow in field space.
@@ -65,15 +73,26 @@ Coding
 ======
 
 The locations are coded as simple x and y floating point values, as in the original data.
-Each player has a pair of input neurons corresponding to the current position, and the last position before that
-for both coordinates x and y. For one module and 23 players, this makes 23x2x2 = 92 continuous valued input neurons
-for each module. The input data is the same for each module, but the target to predict is shifted to the first neurons.
+Each player has a pair of input neurons corresponding to the current position, and the delta from the last position
+before that for both coordinates x and y.
 
 The value signifying missing values is replaced by a special on-off neuron. This neuron is off when either of the input
 values is the placeholder value signifying missing data. When the neuron is off, both x and y neurons respectively are
 zeroed.
 
-The output neuron coding is identical to the input neuron coding but only has x and y positions per module.
+For one module and 23 players, this makes 23 x (2 x 2 + 1) = 115 input neurons
+for each module, of which 23 are on-off valued, and the rest are continuous valued.
+The input data is the same for each module, but the target to predict is shifted to the first neurons.
+
+The output neuron coding is identical to the input neuron coding but only has the predicted next x and y position for
+the target tracked by the module.
+
+For these continuous valued outputs L2 loss function is used.
+
+The enabled flag per module can be predicted also, with the loss function chosen accordingly (so that the predicted location
+does not matter if the prediction is disabled, but so that the associated loss for incorrectly predicting the enabled
+flag is high).
+
 In generation mode the output can be fed back to the inputs by calculating the deltas.
 
 Ideas
@@ -81,3 +100,5 @@ Ideas
 
  * It might make sense to encode the locations of other targets in the order of distance, and using delta coding instead
 of absolute x and y. Then the non-self targets do not need equal weights.
+ * Another neural network module could be used to predict spawning of new targets. The current data set does not have
+   such effects, though.

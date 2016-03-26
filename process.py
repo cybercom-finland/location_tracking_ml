@@ -66,9 +66,11 @@ def toTensor(value):
 print('Dividing into training, test and validation sets.')
 
 input = list(positionTracks.itervalues())
-train = list(itertools.islice(input, 0, None, 3))
-test = list(itertools.islice(input, 1, None, 3))
-validation = list(itertools.islice(input, 2, None, 3))
+train = map(lambda l: list(itertools.islice(l, 0, None, 3)), input)
+test = map(lambda l: list(itertools.islice(input, 1, None, 3)), input)
+validation = map(lambda l: list(itertools.islice(input, 2, None, 3)), input)
+
+print
 
 # Each of the sets have 22677 positions (x,y) for 23 players.
 # We'll divide these into minibatches of size 20, getting 1133 full minibatches.
@@ -129,6 +131,8 @@ def getNextTrainingBatchSequences(data, step, seqs):
     resultY = []
     for seq in range(seqs):
         sequenceX, sequenceY = getNextTrainingBatch(data, step)
+        print('Shape(sequenceX): ' + str(tf.shape(sequenceX).eval()))
+        print('Shape(sequenceY): ' + str(tf.shape(sequenceY).eval()))
         resultX.append(sequenceX);
         resultY.append(sequenceY);
     return toTensor(resultX), toTensor(resultY)
@@ -176,11 +180,16 @@ with tf.Session() as sess:
     
     # FIXME: This is still work in progress....
     for targetInd in range(23):
-        print('Training target: ' + str(targetInd))
+        print('Creating input data for the target: ' + str(targetInd))
         # Choosing the target to track
         trainingData = makeInputForTargetInd(train, targetInd)
+        print('Training target: ' + str(targetInd))
+        print('Shape(trainingData): ' + str(tf.shape(trainingData).eval()))
+        print('Shape(train): ' + str(tf.shape(train).eval()))
         while step * batch_size < training_iters:
             batch_xs, batch_ys = getNextTrainingBatchSequences(trainingData, step - 1, batch_size)
+            print('Shape(batch_xs): ' + str(tf.shape(batch_xs).eval()))
+            print('Shape(batch_ys): ' + str(tf.shape(batch_ys).eval()))
             # Reshape data to get batch_size sequences of n_steps elements with n_input values
             batch_xs = tf.reshape(batch_xs, [batch_size, n_steps, n_input])
             # Fit training using batch data

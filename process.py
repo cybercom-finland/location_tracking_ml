@@ -122,12 +122,12 @@ def makeInputForTargetInd(data, targetInd):
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step):
     disp = step * n_steps % (len(train) - n_steps)
-    return tf.slice(data, [0, disp, 0], [-1, n_steps, -1]), tf.slice(data, [0, disp + 1, 0], [0, n_steps + 1, -1])
+    return tf.slice(data, [0, disp, 0], [-1, n_steps, -1]), tf.slice(data, [0, disp + 1, 0], [1, n_steps, -1])
 
 def getNextTrainingBatchSequences(data, step, seqs):
     resultX = []
     resultY = []
-    for seq in range(0, seqs-1):
+    for seq in range(seqs):
         sequenceX, sequenceY = getNextTrainingBatch(data, step)
         resultX.append(sequenceX);
         resultY.append(sequenceY);
@@ -175,14 +175,14 @@ with tf.Session() as sess:
     # Keep training until reach max iterations for each target in the material
     
     # FIXME: This is still work in progress....
-    for targetInd in range(0, 22):
+    for targetInd in range(23):
         print('Training target: ' + str(targetInd))
         # Choosing the target to track
         trainingData = makeInputForTargetInd(train, targetInd)
         while step * batch_size < training_iters:
             batch_xs, batch_ys = getNextTrainingBatchSequences(trainingData, step - 1, batch_size)
             # Reshape data to get batch_size sequences of n_steps elements with n_input values
-            batch_xs = batch_xs.reshape((batch_size, n_steps, n_input))
+            batch_xs = tf.reshape(batch_xs, [batch_size, n_steps, n_input])
             # Fit training using batch data
             sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys,
                                            istate: np.zeros((batch_size, 2*n_hidden))})

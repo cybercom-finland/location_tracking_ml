@@ -122,7 +122,7 @@ def makeInputForTargetInd(data, targetInd):
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step):
     disp = step * n_steps % (len(train) - n_steps)
-    return tf.slice(data, [0, disp, 0], [-1, n_steps, -1]), tf.slice(data, [0, disp + 1, 0], [-1, n_steps + 1, -1])[0]
+    return tf.slice(data, [0, disp, 0], [-1, n_steps, -1]), tf.slice(data, [0, disp + 1, 0], [0, n_steps + 1, -1])
 
 def getNextTrainingBatchSequences(data, step, seqs):
     resultX = []
@@ -131,7 +131,7 @@ def getNextTrainingBatchSequences(data, step, seqs):
         sequenceX, sequenceY = getNextTrainingBatch(data, step)
         resultX.append(sequenceX);
         resultY.append(sequenceY);
-    return resultX, resultY
+    return toTensor(resultX), toTensor(resultY)
 
 def RNN(_X, _istate, _weights, _biases):
 

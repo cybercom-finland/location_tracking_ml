@@ -164,8 +164,7 @@ cost = tf.reduce_mean(tf.nn.l2_loss(pred-y)) # L2 loss for regression
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost) # Adam Optimizer
 
 # Evaluate model
-correct_pred = tf.equal(tf.argmax(pred,1), tf.argmax(y,1))
-accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+accuracy = 1/cost
 
 # Initializing the variables
 init = tf.initialize_all_variables()
@@ -174,7 +173,6 @@ print('Launching training.')
 # Launch the graph
 with tf.Session() as sess:
     sess.run(init)
-    step = 1
     # Keep training until reach max iterations for each target in the material
     
     # FIXME: This is still work in progress....
@@ -183,7 +181,7 @@ with tf.Session() as sess:
         # Choosing the target to track
         trainingData = makeInputForTargetInd(train, targetInd)
         print('Training target: ' + str(targetInd))
-        print('Shape(trainingData): ' + str(tf.shape(trainingData).eval()))
+        step = 1
         while step * batch_size < training_iters:
             (batch_xs, batch_ys) = getNextTrainingBatchSequences(trainingData, step - 1, batch_size)
             # Reshape data to get batch_size sequences of n_steps elements with n_input values
@@ -207,7 +205,9 @@ with tf.Session() as sess:
     test_len = len(test) - 1
     
     # FIXME: This is still work in progress....
-    test_data = test[:test_len].reshape((-1, n_steps, n_input))
-    test_label = test[1:test_len + 1]
-    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_data, y: test_label,
+    testData = makeInputForTargetInd(test, 0)
+    test_x, test_y = getNextTrainingBatchSequences(testData, 0, test_len)
+    test_x = test_x.reshape((test_len, n_steps, n_input))
+    test_y = test_y.reshape((test_len, n_output))
+    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y,
                                                              istate: np.zeros((test_len, 2*n_hidden))})

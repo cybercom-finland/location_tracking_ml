@@ -27,8 +27,11 @@ with open('tr-ft.json', 'r') as inputData:
         positionTracks[index] = dict()
         for pos in datum['data']:
             # Note: The data has 99999.999 for x and y denoting missing position.
-            # Leaving them here, because we can't have null values in any case.
-            positionTracks[index][pos['id']] = [float(pos['x']), float(pos['y'])];
+            # Cleaning them up by filling them with the last known good location.
+            if float(pos['x']) > 1000:
+                positionTracks[index][pos['id']] = positionTracks[index-1][pos['id']];
+            else:
+                positionTracks[index][pos['id']] = [float(pos['x']), float(pos['y'])];
         index += 1
 
 print('Creating Octave file.')
@@ -65,8 +68,8 @@ def toTensor(value):
 
 print('Dividing into training, test and validation sets.')
 
-# Taking only 500 first ones to save memory.
-input = map(lambda l: list(l.itervalues()), positionTracks)[0:499]
+# Taking only 5000 first ones to save memory.
+input = map(lambda l: list(l.itervalues()), positionTracks)[0:4999]
 train = list(itertools.islice(input, 0, None, 3))
 test = list(itertools.islice(input, 1, None, 3))
 validation = list(itertools.islice(input, 2, None, 3))
@@ -84,7 +87,7 @@ validation = list(itertools.islice(input, 2, None, 3))
 print('Creating the neural network model.')
 # Parameters
 learning_rate = 0.001
-training_iters = 1000
+training_iters = 100000
 display_step = 10
 
 # Network Parameters
@@ -93,7 +96,7 @@ display_step = 10
 n_input = 23*2
 # The minibatch is 20 sequences of 20 steps.
 batch_size = 20;
-n_steps = 20 # timesteps
+n_steps = 5 # timesteps
 n_hidden = 128 # hidden layer num of features
 # x, y for 1 target. TODO: Add enabled flag.
 n_output = 2
@@ -163,8 +166,9 @@ pred = RNN(x, istate, weights, biases)
 cost = tf.reduce_mean(tf.nn.l2_loss(pred-y)) # L2 loss for regression
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost) # Adam Optimizer
 
-# Evaluate model
-accuracy = 1/cost
+# Evaluate model, 1 m accuracy is ~1.0. Higher accuracy is better.
+# We will take 1 m as the arbitrary goal post to be happy with the accuracy.
+accuracy = 1.0 / (tf.sqrt(tf.nn.l2_loss(pred-y) * 2) + 0.001)
 
 # Initializing the variables
 init = tf.initialize_all_variables()

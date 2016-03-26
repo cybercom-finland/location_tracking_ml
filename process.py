@@ -116,7 +116,7 @@ def makeInputForTargetInd(data, targetInd):
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step):
     disp = step * n_steps % (len(train) - n_steps)
-    return data[:][disp:disp+n_steps], data[0][disp+1:disp+n_steps+1]
+    return tf.slice(data, [0, disp, 0], [-1, n_steps, -1]), tf.slice(data[0], [disp + 1], [n_steps + 1])
 
 def getNextTrainingBatchSequences(data, step, seqs):
     resultX = []

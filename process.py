@@ -14,41 +14,41 @@ positionTracks = dict()
 # {"game":"NN7SxDe8uLmvKLiQd","ts":3232387,"data":[{"id":5,"x":-1.108,"y":0.155,"distToBall":0,"poss":false},{"id":11,"x":-0.27,"y":-0.63,"distToBall":1.1482460537707064,"poss":false},{"id":12,"x":-0.408,"y":-29.365,"distToBall":29.52829829163882,"poss":false},{"id":15,"x":-45.583,"y":-0.254,"distToBall":44.47688057856576,"poss":false},{"id":16,"x":-15.173,"y":7.564,"distToBall":15.89709111755984,"poss":false},{"id":19,"x":-15.845,"y":-4.697,"distToBall":15.515188461633329,"poss":false},{"id":20,"x":-1.026,"y":29.019,"distToBall":28.86411647703771,"poss":false},{"id":22,"x":-0.014,"y":27.519,"distToBall":27.385860074133145,"poss":false},{"id":23,"x":-0.053,"y":0.547,"distToBall":1.125472789542244,"poss":false},{"id":25,"x":-9.062,"y":-16.995,"distToBall":18.904724700455176,"poss":false},{"id":29,"x":-6.073,"y":0.108,"distToBall":4.96522245221702,"poss":false},{"id":30,"x":-11.883,"y":1.116,"distToBall":10.817769918056122,"poss":false},{"id":41,"x":20.325,"y":21.94,"distToBall":30.56075447367097,"poss":false},{"id":43,"x":19.473,"y":-15.108,"distToBall":25.622972700293776,"poss":false},{"id":45,"x":21.959,"y":7.454,"distToBall":24.194253243280727,"poss":false},{"id":46,"x":14.353,"y":-2.178,"distToBall":15.636029227396579,"poss":false},{"id":47,"x":14.344,"y":6.372,"distToBall":16.65579157530497,"poss":false},{"id":60,"x":9.481,"y":0.167,"distToBall":10.589006799506741,"poss":false},{"id":61,"x":8.129,"y":24.685,"distToBall":26.211506423706364,"poss":false},{"id":64,"x":3.442,"y":-13.896,"distToBall":14.769329741054602,"poss":false},{"id":65,"x":20.937,"y":-3.572,"distToBall":22.357829814183667,"poss":false},{"id":72,"x":45.615,"y":0.148,"distToBall":46.72300052436701,"poss":false},{"id":73,"x":-0.249,"y":8.613,"distToBall":8.501508395573106,"poss":false}],"calc":{"pressingIndex":0,"curPass":0,"curBPTimeTeam":{"0":{"a":0,"s":{"1":0,"2":0,"3":0}},"1":{"a":0,"s":{"1":0,"2":0,"3":0}},"2":{"a":0,"s":{"1":0,"2":0,"3":0}}}},"_id":"WTE3PjZ4eEC3cFgo7"}
 
 print('Reading input data file.')
-# We want to change it into a list of positions, posx vs. posy
+# We want to change it into a list of positions for each player, posx vs. posy
 count = 0
 with open('tr-ft.json', 'r') as inputData:
     # Just counting the rows first.
     count = sum(1 for line in inputData)
-with open('tr-ft.json', 'r') as inputData:
-    # Just collecting all the player ids first.
-    for line in inputData:
-        datum = json.loads(line)
-        for pos in datum['data']:
-            if (not positionTracks.has_key(pos['id'])):
-                positionTracks[pos['id']] = [None] * count;
 index = 0
 with open('tr-ft.json', 'r') as inputData:
+    positionTracks = [None] * count;
     for line in inputData:
         datum = json.loads(line)
+        positionTracks[index] = dict()
         for pos in datum['data']:
             # Note: The data has 99999.999 for x and y denoting missing position.
             # Leaving them here, because we can't have null values in any case.
-            positionTracks[pos['id']][index] = [float(pos['x']), float(pos['y'])];
+            positionTracks[index][pos['id']] = [float(pos['x']), float(pos['y'])];
         index += 1
 
 print('Creating Octave file.')
 
+# positionTracks now has a list of all time slices, each having a dict of players containing x and y coordinates.
 octaveInput = 'pos = [\n'
 first = True;
-for id in positionTracks.keys():
-    if not first:
-        octaveInput += ',\n'
-    first = False
-    octaveInput += ','.join(map(str, positionTracks[id]))
+for state in positionTracks:
+    numberOfPlayers = len(state.keys());
+    for id in state.keys():
+        if not first:
+            octaveInput += ',\n'
+        first = False
+        octaveInput += ','.join(map(str, state[id]))
 octaveInput += '\n'
 octaveInput += '];\n'
-numberOfPlayers = len(positionTracks.keys());
-octaveInput += 'pos = reshape(pos, ' + str(numberOfPlayers) + ', 2, ' + str(index) + ');\n'
+octaveInput += 'count = ' + str(count) + '\n'
+octaveInput += 'numberOfPlayers = ' + str(numberOfPlayers) + '\n'
+# The ordering of indices is funny here, because the matrix consists of position vectors.
+octaveInput += 'pos = reshape(pos, ' + str(numberOfPlayers) + ', ' + str(count) + ', 2);\n'
 with open('tracks.m', 'w') as octaveFile:
     octaveFile.write(octaveInput)
 
@@ -65,12 +65,11 @@ def toTensor(value):
 
 print('Dividing into training, test and validation sets.')
 
-input = list(positionTracks.itervalues())
-train = map(lambda l: list(itertools.islice(l, 0, None, 3)), input)
-test = map(lambda l: list(itertools.islice(input, 1, None, 3)), input)
-validation = map(lambda l: list(itertools.islice(input, 2, None, 3)), input)
-
-print
+# Taking only 500 first ones to save memory.
+input = map(lambda l: list(l.itervalues()), positionTracks)[0:499]
+train = list(itertools.islice(input, 0, None, 3))
+test = list(itertools.islice(input, 1, None, 3))
+validation = list(itertools.islice(input, 2, None, 3))
 
 # Each of the sets have 22677 positions (x,y) for 23 players.
 # We'll divide these into minibatches of size 20, getting 1133 full minibatches.
@@ -96,8 +95,8 @@ n_input = 23*2
 batch_size = 20;
 n_steps = 20 # timesteps
 n_hidden = 128 # hidden layer num of features
-# x, y for 23 targets. TODO: Add enabled flag.
-n_output = 23*2
+# x, y for 1 target. TODO: Add enabled flag.
+n_output = 2
 
 # tf Graph input
 x = tf.placeholder("float", [None, n_steps, n_input])
@@ -118,24 +117,24 @@ biases = {
 # Returns a properly shifted input for tracking the given target.
 def makeInputForTargetInd(data, targetInd):
     newData = list(data)
-    newData[0], newData[targetInd] = newData[targetInd], newData[0]
-    return toTensor(newData);
+    newData[:][0], newData[:][targetInd] = newData[:][targetInd], newData[:][0]
+    return newData;
     
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step):
-    disp = step * n_steps % (len(train) - n_steps)
-    return tf.slice(data, [0, disp, 0], [-1, n_steps, -1]), tf.slice(data, [0, disp + 1, 0], [1, n_steps, -1])
+    disp = step * n_steps % (len(data) - n_steps)
+    Xtrack = np.array(data[disp:disp+n_steps])
+    Ytrack = np.array(data[disp+n_steps])[0,:]
+    return Xtrack, Ytrack
 
 def getNextTrainingBatchSequences(data, step, seqs):
     resultX = []
     resultY = []
     for seq in range(seqs):
         sequenceX, sequenceY = getNextTrainingBatch(data, step)
-        print('Shape(sequenceX): ' + str(tf.shape(sequenceX).eval()))
-        print('Shape(sequenceY): ' + str(tf.shape(sequenceY).eval()))
         resultX.append(sequenceX);
         resultY.append(sequenceY);
-    return toTensor(resultX), toTensor(resultY)
+    return np.asarray(resultX), np.asarray(resultY)
 
 def RNN(_X, _istate, _weights, _biases):
 
@@ -185,13 +184,11 @@ with tf.Session() as sess:
         trainingData = makeInputForTargetInd(train, targetInd)
         print('Training target: ' + str(targetInd))
         print('Shape(trainingData): ' + str(tf.shape(trainingData).eval()))
-        print('Shape(train): ' + str(tf.shape(train).eval()))
         while step * batch_size < training_iters:
-            batch_xs, batch_ys = getNextTrainingBatchSequences(trainingData, step - 1, batch_size)
-            print('Shape(batch_xs): ' + str(tf.shape(batch_xs).eval()))
-            print('Shape(batch_ys): ' + str(tf.shape(batch_ys).eval()))
+            (batch_xs, batch_ys) = getNextTrainingBatchSequences(trainingData, step - 1, batch_size)
             # Reshape data to get batch_size sequences of n_steps elements with n_input values
-            batch_xs = tf.reshape(batch_xs, [batch_size, n_steps, n_input])
+            batch_xs = batch_xs.reshape((batch_size, n_steps, n_input))
+            batch_ys = batch_ys.reshape((batch_size, n_output))
             # Fit training using batch data
             sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys,
                                            istate: np.zeros((batch_size, 2*n_hidden))})

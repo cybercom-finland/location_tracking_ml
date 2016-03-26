@@ -23,7 +23,7 @@ You can plot the data in Octave using:
 
 `p = 5;`
 
-`indices = (abs(pos(p,1,:)) <= 53 & abs(pos(p,2,:)) <= 35); scatter(pos(p,1,indices), pos(p,2,indices), 2, p);`
+`indices = (abs(pos(p,:,1)) <= 53 & abs(pos(p,:,2)) <= 35); scatter(pos(p,indices,1), pos(p,indices,2), 2, p);`
 
 Here 5 is the index of the player, and the first command filters out the empty and otherwise invalid values.
 

@@ -68,8 +68,8 @@ def toTensor(value):
 
 print('Dividing into training, test and validation sets.')
 
-# Taking only 5000 first ones to save memory.
-input = map(lambda l: list(l.itervalues()), positionTracks)[0:4999]
+# Taking only 100000 first ones to save memory.
+input = map(lambda l: list(l.itervalues()), positionTracks)[0:19999]
 train = list(itertools.islice(input, 0, None, 3))
 test = list(itertools.islice(input, 1, None, 3))
 validation = list(itertools.islice(input, 2, None, 3))
@@ -86,7 +86,7 @@ validation = list(itertools.islice(input, 2, None, 3))
 
 print('Creating the neural network model.')
 # Parameters
-learning_rate = 0.001
+learning_rate = 0.0001
 training_iters = 100000
 display_step = 10
 
@@ -97,7 +97,7 @@ n_input = 23*2
 # The minibatch is 20 sequences of 20 steps.
 batch_size = 20;
 n_steps = 5 # timesteps
-n_hidden = 128 # hidden layer num of features
+n_hidden = 20 # hidden layer num of features
 # x, y for 1 target. TODO: Add enabled flag.
 n_output = 2
 

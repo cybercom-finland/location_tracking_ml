@@ -86,9 +86,9 @@ validation = input[third*2:len(input)]
 print('Creating the neural network model.')
 # Parameters
 learning_rate = 0.003
-training_iters = 500000
+training_iters = 50000
 display_step = 100
-decay = 0.99999
+decay = 0.999994
 
 # Network Parameters
 # x, y for 3 targets

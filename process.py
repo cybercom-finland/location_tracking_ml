@@ -88,30 +88,37 @@ print('Creating the neural network model.')
 learning_rate = 0.004
 training_iters = 100000
 display_step = 10
+decay = 0.99995
 
 # Network Parameters
 # x, y for 23 targets
 # TODO: Add velocity, enabled flag
 n_input = 23*2
 # The minibatch is 10 sequences of 5 steps.
-batch_size = 10;
+batch_size = 20;
 n_steps = 5 # timesteps
-n_hidden = 8 # hidden layer num of features
-n_hidden2 = 4 # 2. hidden layer num of features
+n_hidden = 32 # hidden layer num of features: Linear
+n_hidden2 = 8 # 2. hidden layer num of features: LSTM
+n_hidden3 = 4 # 3. hidden layer num of features: LSTM
 # x, y for 1 target. TODO: Add enabled flag.
 n_output = 2
 
 # tf Graph input
 x = tf.placeholder("float", [None, n_steps, n_input])
 y = tf.placeholder("float", [None, n_output])
+lstm_state_size = 2 * n_hidden2 + 2 * n_hidden3
+istate = tf.placeholder("float", [None, lstm_state_size])
+lr = tf.Variable(learning_rate, trainable=False)
 
 # Define weights
 weights = {
     'hidden': tf.Variable(tf.random_normal([n_input, n_hidden])), # Hidden layer weights
-    'out': tf.Variable(tf.random_normal([n_hidden2, n_output]))
+    'hidden2': tf.Variable(tf.random_normal([n_hidden, n_hidden2])), # 2. Hidden layer weights
+    'out': tf.Variable(tf.random_normal([n_hidden3, n_output]))
 }
 biases = {
     'hidden': tf.Variable(tf.random_normal([n_hidden])),
+    'hidden2': tf.Variable(tf.random_normal([n_hidden2])),
     'out': tf.Variable(tf.random_normal([n_output]))
 }
 
@@ -119,9 +126,6 @@ biases = {
 def makeInputForTargetInd(data, targetInd):
     newData = list(data)
     newData[:][0], newData[:][targetInd] = newData[:][targetInd], newData[:][0]
-    #plt.plot(data[:][0][0], data[:][0][1])
-    #plt.plot(data[:][1][0], data[:][1][1])
-    #plt.show()
     
     return newData;
     
@@ -143,38 +147,39 @@ def getNextTrainingBatchSequences(data, step, seqs):
         resultY.append(sequenceY);
     return np.asarray(resultX), np.asarray(resultY)
 
-def RNN(_X, _weights, _biases):
-
+def RNN(_X, _weights, _biases, states):
     # input shape: (batch_size, n_steps, n_input)
     _X = tf.transpose(_X, [1, 0, 2])  # permute n_steps and batch_size
     # Reshape to prepare input to hidden activation
     _X = tf.reshape(_X, [-1, n_input]) # (n_steps*batch_size, n_input)
-    # Linear activation
+    # 1. hidden layer, linear activation for each batch and step.
     _X = tf.matmul(_X, _weights['hidden']) + _biases['hidden']
+    # 2. hidden layer, linear activation for each batch and step.
+    _X = tf.matmul(_X, _weights['hidden2']) + _biases['hidden2']
 
     # Define a stacked lstm with tensorflow
     stacked_lstm = rnn_cell.MultiRNNCell([
-        rnn_cell.BasicLSTMCell(n_hidden),
-        rnn_cell.BasicLSTMCell(n_hidden2, input_size=n_hidden)])
-    states = stacked_lstm.zero_state(batch_size, tf.float32)
+        rnn_cell.BasicLSTMCell(n_hidden2),
+        rnn_cell.BasicLSTMCell(n_hidden3, input_size=n_hidden2)])
     # Split data because rnn cell needs a list of inputs for the RNN inner loop
-    _X = tf.split(0, n_steps, _X) # n_steps * (batch_size, n_hidden)
+    _X = tf.split(0, n_steps, _X) # n_steps * (batch_size, n_hidden2)
 
     outputs = None
     for i in range(n_steps):
+        # LSTM reuses the weights and state between steps.
         if i > 0: tf.get_variable_scope().reuse_variables()
         # The value of state is updated after processing each batch of words.
         # Get lstm output
         outputs, states = stacked_lstm(_X[i], states)
 
     # Get inner loop last output
-    return tf.matmul(outputs, _weights['out']) + _biases['out']
+    return (tf.matmul(outputs, _weights['out']) + _biases['out'], states)
 
-pred = RNN(x, weights, biases)
+pred, lastState = RNN(x, weights, biases, istate)
 
 # Define loss and optimizer
 cost = tf.reduce_mean(tf.nn.l2_loss(pred-y)) # L2 loss for regression
-optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost) # Adam Optimizer
+optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
 
 # Evaluate model, 1 m accuracy is ~1.0. Higher accuracy is better.
 # We will take 1 m as the arbitrary goal post to be happy with the accuracy.
@@ -188,7 +193,7 @@ print('Launching training.')
 with tf.Session() as sess:
     sess.run(init)
     # Keep training until reach max iterations for each target in the material
-    
+
     # FIXME: This is still work in progress....
     for targetInd in range(23):
         print('Creating input data for the target: ' + str(targetInd))
@@ -196,36 +201,48 @@ with tf.Session() as sess:
         trainingData = makeInputForTargetInd(train, targetInd)
         print('Training target: ' + str(targetInd))
         step = 1
+        iter = 0
         while step * batch_size < training_iters:
+            learning_rate = learning_rate * decay;
+            tf.assign(lr, learning_rate)
+            iter += 1
             (batch_xs, batch_ys) = getNextTrainingBatchSequences(trainingData, step - 1, batch_size)
             # Reshape data to get batch_size sequences of n_steps elements with n_input values
             batch_xs = batch_xs.reshape((batch_size, n_steps, n_input))
             batch_ys = batch_ys.reshape((batch_size, n_output))
             # Fit training using batch data
-            sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys})
+            sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys, istate: np.zeros((batch_size, lstm_state_size))})
             if step % display_step == 0:
                 # Calculate batch accuracy
-                acc = sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys})
+                acc = sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys, istate: np.zeros((batch_size, lstm_state_size))})
                 # Calculate batch loss
-                loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys})
+                loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys, istate: np.zeros((batch_size, lstm_state_size))})
+                prediction = sess.run(pred, feed_dict={x: batch_xs, istate: np.zeros((batch_size, lstm_state_size))})
+                print "Prediction: " + str(prediction)
+                print "Reality: " + str(batch_ys)
                 print "Iter " + str(step*batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss) + \
-                     ", Training Accuracy= " + "{:.5f}".format(acc)
+                     ", Training Accuracy= " + "{:.5f}".format(acc) + ", Learning rate= " + "{:.5f}".format(learning_rate)
             step += 1
     print "Optimization Finished!"
     # Calculate accuracy for the test data
     test_len = batch_size # len(test) - 1
     
+    testData = makeInputForTargetInd(test, 0)
+    test_xp, test_yp = getNextTrainingBatchSequences(testData, 0, test_len)
+    trivialCost = sess.run(cost, feed_dict={pred: test_xp[:,1,0,:], y: test_xp[:,0,0,:], istate: np.zeros((batch_size, lstm_state_size))})
+    print "Loss for just using the last known position as the prediction: " + str(trivialCost)
     # FIXME: This is still work in progress....
     testData = makeInputForTargetInd(test, 0)
-    test_x, test_y = getNextTrainingBatchSequences(testData, 0, test_len)
-    test_x = test_x.reshape((test_len, n_steps, n_input))
-    test_y = test_y.reshape((test_len, n_output))
-    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y})
-    test_x, test_y = getNextTrainingBatchSequences(testData, 0, test_len)
-    test_x = test_x.reshape((test_len, n_steps, n_input))
-    test_y = test_y.reshape((test_len, n_output))
-    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y})
-    test_x, test_y = getNextTrainingBatchSequences(testData, 0, test_len)
-    test_x = test_x.reshape((test_len, n_steps, n_input))
-    test_y = test_y.reshape((test_len, n_output))
-    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y})
+    test_xp, test_yp = getNextTrainingBatchSequences(testData, 0, test_len)
+
+    test_x = test_xp.reshape((test_len, n_steps, n_input))
+    test_y = test_yp.reshape((test_len, n_output))
+    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y, istate: np.zeros((batch_size, lstm_state_size))})
+    prediction = sess.run(pred, feed_dict={x: test_x, istate: np.zeros((batch_size, lstm_state_size))})
+    print str(prediction)
+    plt.plot(test_xp[0,:,0,0], test_xp[0,:,0,1],
+             [test_xp[0,n_steps-1,0,0], prediction[0,0]],
+             [test_xp[0,n_steps-1,0,1], prediction[0,1]],
+             [test_xp[0,n_steps-1,0,0], test_yp[0,0]],
+             [test_xp[0,n_steps-1,0,1], test_yp[0,1]]);
+    plt.show()

@@ -85,40 +85,35 @@ validation = input[third*2:len(input)]
 
 print('Creating the neural network model.')
 # Parameters
-learning_rate = 0.004
-training_iters = 100000
-display_step = 10
-decay = 0.99995
+learning_rate = 0.003
+training_iters = 500000
+display_step = 100
+decay = 0.99999
 
 # Network Parameters
-# x, y for 23 targets
-# TODO: Add velocity, enabled flag
-n_input = 23*2
+# x, y for 3 targets
+# TODO: Add enabled flag
+n_input = 3*4
 # The minibatch is 10 sequences of 5 steps.
-batch_size = 20;
+batch_size = 10;
 n_steps = 5 # timesteps
-n_hidden = 32 # hidden layer num of features: Linear
-n_hidden2 = 8 # 2. hidden layer num of features: LSTM
-n_hidden3 = 4 # 3. hidden layer num of features: LSTM
+n_hidden = [8, 8]
 # x, y for 1 target. TODO: Add enabled flag.
 n_output = 2
 
 # tf Graph input
 x = tf.placeholder("float", [None, n_steps, n_input])
 y = tf.placeholder("float", [None, n_output])
-lstm_state_size = 2 * n_hidden2 + 2 * n_hidden3
+lstm_state_size = 2 * n_hidden[1]# + 2 * n_hidden3
 istate = tf.placeholder("float", [None, lstm_state_size])
 lr = tf.Variable(learning_rate, trainable=False)
 
 # Define weights
 weights = {
-    'hidden': tf.Variable(tf.random_normal([n_input, n_hidden])), # Hidden layer weights
-    'hidden2': tf.Variable(tf.random_normal([n_hidden, n_hidden2])), # 2. Hidden layer weights
-    'out': tf.Variable(tf.random_normal([n_hidden3, n_output]))
+    'hidden': tf.Variable(tf.random_normal([3*4, n_hidden[1]])), # Hidden layer weights.
+    'out': tf.Variable(tf.random_normal([n_hidden[1], n_output]))
 }
 biases = {
-    'hidden': tf.Variable(tf.random_normal([n_hidden])),
-    'hidden2': tf.Variable(tf.random_normal([n_hidden2])),
     'out': tf.Variable(tf.random_normal([n_output]))
 }
 
@@ -126,17 +121,24 @@ biases = {
 def makeInputForTargetInd(data, targetInd):
     newData = list(data)
     newData[:][0], newData[:][targetInd] = newData[:][targetInd], newData[:][0]
-    
+    # Picking two random peers (23 is too many, and 1 is not robust against switch)
+    randomPeer1 = random.randint(1, 23)
+    newData[:][1], newData[:][randomPeer1] = newData[:][randomPeer1], newData[:][1]
+    randomPeer2 = random.randint(2, 23)
+    newData[:][2], newData[:][randomPeer2] = newData[:][randomPeer2], newData[:][2]
+    newData = map(lambda n: n[0:3], newData)
     return newData;
     
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step):
-    disp = random.randint(0, len(data) - n_steps - 1)
+    disp = random.randint(1, len(data[:]) - n_steps - 1)
     Xtrack = np.array(data[disp:disp+n_steps])
+    # Velocity is delta to the previous position.
+    Vtrack = np.array(np.array(data[disp:disp+n_steps])-np.array(data[disp-1:disp+n_steps-1]))
     Ytrack = np.array(data[disp+n_steps])[0,:]
     #plt.plot(Xtrack[:,0,0], Xtrack[:,0,1], [Xtrack[n_steps-1,0,0], Ytrack[0]], [Xtrack[n_steps-1,0,1], Ytrack[1]])
     #plt.show()
-    return Xtrack, Ytrack
+    return np.vstack((Xtrack, Vtrack)), Ytrack
 
 def getNextTrainingBatchSequences(data, step, seqs):
     resultX = []
@@ -153,14 +155,12 @@ def RNN(_X, _weights, _biases, states):
     # Reshape to prepare input to hidden activation
     _X = tf.reshape(_X, [-1, n_input]) # (n_steps*batch_size, n_input)
     # 1. hidden layer, linear activation for each batch and step.
-    _X = tf.matmul(_X, _weights['hidden']) + _biases['hidden']
-    # 2. hidden layer, linear activation for each batch and step.
-    _X = tf.matmul(_X, _weights['hidden2']) + _biases['hidden2']
+    _X = tf.matmul(_X, _weights['hidden'])
 
     # Define a stacked lstm with tensorflow
     stacked_lstm = rnn_cell.MultiRNNCell([
-        rnn_cell.BasicLSTMCell(n_hidden2),
-        rnn_cell.BasicLSTMCell(n_hidden3, input_size=n_hidden2)])
+        rnn_cell.BasicLSTMCell(n_hidden[1])]) #,
+        #rnn_cell.BasicLSTMCell(n_hidden3, input_size=n_hidden2)])
     # Split data because rnn cell needs a list of inputs for the RNN inner loop
     _X = tf.split(0, n_steps, _X) # n_steps * (batch_size, n_hidden2)
 

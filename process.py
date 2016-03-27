@@ -85,7 +85,7 @@ validation = input[third*2:len(input)]
 
 print('Creating the neural network model.')
 # Parameters
-learning_rate = 0.0001
+learning_rate = 0.004
 training_iters = 100000
 display_step = 10
 
@@ -93,23 +93,22 @@ display_step = 10
 # x, y for 23 targets
 # TODO: Add velocity, enabled flag
 n_input = 23*2
-# The minibatch is 20 sequences of 20 steps.
-batch_size = 20;
+# The minibatch is 10 sequences of 5 steps.
+batch_size = 10;
 n_steps = 5 # timesteps
-n_hidden = 20 # hidden layer num of features
+n_hidden = 8 # hidden layer num of features
+n_hidden2 = 4 # 2. hidden layer num of features
 # x, y for 1 target. TODO: Add enabled flag.
 n_output = 2
 
 # tf Graph input
 x = tf.placeholder("float", [None, n_steps, n_input])
-# Tensorflow LSTM cell requires 2x n_hidden length (state & cell)
-istate = tf.placeholder("float", [None, 2*n_hidden])
 y = tf.placeholder("float", [None, n_output])
 
 # Define weights
 weights = {
     'hidden': tf.Variable(tf.random_normal([n_input, n_hidden])), # Hidden layer weights
-    'out': tf.Variable(tf.random_normal([n_hidden, n_output]))
+    'out': tf.Variable(tf.random_normal([n_hidden2, n_output]))
 }
 biases = {
     'hidden': tf.Variable(tf.random_normal([n_hidden])),
@@ -144,7 +143,7 @@ def getNextTrainingBatchSequences(data, step, seqs):
         resultY.append(sequenceY);
     return np.asarray(resultX), np.asarray(resultY)
 
-def RNN(_X, _istate, _weights, _biases):
+def RNN(_X, _weights, _biases):
 
     # input shape: (batch_size, n_steps, n_input)
     _X = tf.transpose(_X, [1, 0, 2])  # permute n_steps and batch_size
@@ -153,19 +152,25 @@ def RNN(_X, _istate, _weights, _biases):
     # Linear activation
     _X = tf.matmul(_X, _weights['hidden']) + _biases['hidden']
 
-    # Define a lstm cell with tensorflow
-    lstm_cell = rnn_cell.BasicLSTMCell(n_hidden, forget_bias=1.0)
+    # Define a stacked lstm with tensorflow
+    stacked_lstm = rnn_cell.MultiRNNCell([
+        rnn_cell.BasicLSTMCell(n_hidden),
+        rnn_cell.BasicLSTMCell(n_hidden2, input_size=n_hidden)])
+    states = stacked_lstm.zero_state(batch_size, tf.float32)
     # Split data because rnn cell needs a list of inputs for the RNN inner loop
     _X = tf.split(0, n_steps, _X) # n_steps * (batch_size, n_hidden)
 
-    # Get lstm cell output
-    outputs, states = rnn.rnn(lstm_cell, _X, initial_state=_istate)
+    outputs = None
+    for i in range(n_steps):
+        if i > 0: tf.get_variable_scope().reuse_variables()
+        # The value of state is updated after processing each batch of words.
+        # Get lstm output
+        outputs, states = stacked_lstm(_X[i], states)
 
-    # Linear activation
     # Get inner loop last output
-    return tf.matmul(outputs[-1], _weights['out']) + _biases['out']
+    return tf.matmul(outputs, _weights['out']) + _biases['out']
 
-pred = RNN(x, istate, weights, biases)
+pred = RNN(x, weights, biases)
 
 # Define loss and optimizer
 cost = tf.reduce_mean(tf.nn.l2_loss(pred-y)) # L2 loss for regression
@@ -197,26 +202,30 @@ with tf.Session() as sess:
             batch_xs = batch_xs.reshape((batch_size, n_steps, n_input))
             batch_ys = batch_ys.reshape((batch_size, n_output))
             # Fit training using batch data
-            sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys,
-                                           istate: np.zeros((batch_size, 2*n_hidden))})
+            sess.run(optimizer, feed_dict={x: batch_xs, y: batch_ys})
             if step % display_step == 0:
                 # Calculate batch accuracy
-                acc = sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys,
-                                                    istate: np.zeros((batch_size, 2*n_hidden))})
+                acc = sess.run(accuracy, feed_dict={x: batch_xs, y: batch_ys})
                 # Calculate batch loss
-                loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys,
-                                                 istate: np.zeros((batch_size, 2*n_hidden))})
+                loss = sess.run(cost, feed_dict={x: batch_xs, y: batch_ys})
                 print "Iter " + str(step*batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss) + \
                      ", Training Accuracy= " + "{:.5f}".format(acc)
             step += 1
     print "Optimization Finished!"
     # Calculate accuracy for the test data
-    test_len = len(test) - 1
+    test_len = batch_size # len(test) - 1
     
     # FIXME: This is still work in progress....
     testData = makeInputForTargetInd(test, 0)
     test_x, test_y = getNextTrainingBatchSequences(testData, 0, test_len)
     test_x = test_x.reshape((test_len, n_steps, n_input))
     test_y = test_y.reshape((test_len, n_output))
-    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y,
-                                                             istate: np.zeros((test_len, 2*n_hidden))})
+    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y})
+    test_x, test_y = getNextTrainingBatchSequences(testData, 0, test_len)
+    test_x = test_x.reshape((test_len, n_steps, n_input))
+    test_y = test_y.reshape((test_len, n_output))
+    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y})
+    test_x, test_y = getNextTrainingBatchSequences(testData, 0, test_len)
+    test_x = test_x.reshape((test_len, n_steps, n_input))
+    test_y = test_y.reshape((test_len, n_output))
+    print "Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_x, y: test_y})

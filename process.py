@@ -3,7 +3,9 @@
 import tensorflow as tf
 from tensorflow.models.rnn import rnn, rnn_cell
 import numpy as np
+import matplotlib.pyplot as plt
 
+import random
 import json
 import itertools
 
@@ -55,11 +57,7 @@ octaveInput += 'pos = reshape(pos, ' + str(numberOfPlayers) + ', ' + str(count) 
 with open('tracks.m', 'w') as octaveFile:
     octaveFile.write(octaveInput)
 
-# Dividing into training, test and validation set based on time (taking every third sample for each).
-# There are downsides for all methods of dividing the data into sets, this one guarantees some
-# representability both in time of play and in playing role. Proper validation can be done with the other
-# recorded game (note the interval between samples).
-# This is just a simple proof of concept, so we don't take too much headache of this.
+# Dividing into training, test and validation set based on time
 
 def toTensor(value):
     if (type(value) is list):
@@ -69,10 +67,11 @@ def toTensor(value):
 print('Dividing into training, test and validation sets.')
 
 # Taking only 100000 first ones to save memory.
-input = map(lambda l: list(l.itervalues()), positionTracks)[0:19999]
-train = list(itertools.islice(input, 0, None, 3))
-test = list(itertools.islice(input, 1, None, 3))
-validation = list(itertools.islice(input, 2, None, 3))
+input = map(lambda l: list(l.itervalues()), positionTracks)
+third = len(input)/3
+train = input[0:third]
+test = input[third:third*2]
+validation = input[third*2:len(input)]
 
 # Each of the sets have 22677 positions (x,y) for 23 players.
 # We'll divide these into minibatches of size 20, getting 1133 full minibatches.
@@ -121,13 +120,19 @@ biases = {
 def makeInputForTargetInd(data, targetInd):
     newData = list(data)
     newData[:][0], newData[:][targetInd] = newData[:][targetInd], newData[:][0]
+    #plt.plot(data[:][0][0], data[:][0][1])
+    #plt.plot(data[:][1][0], data[:][1][1])
+    #plt.show()
+    
     return newData;
     
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step):
-    disp = step * n_steps % (len(data) - n_steps)
+    disp = random.randint(0, len(data) - n_steps - 1)
     Xtrack = np.array(data[disp:disp+n_steps])
     Ytrack = np.array(data[disp+n_steps])[0,:]
+    #plt.plot(Xtrack[:,0,0], Xtrack[:,0,1], [Xtrack[n_steps-1,0,0], Ytrack[0]], [Xtrack[n_steps-1,0,1], Ytrack[1]])
+    #plt.show()
     return Xtrack, Ytrack
 
 def getNextTrainingBatchSequences(data, step, seqs):

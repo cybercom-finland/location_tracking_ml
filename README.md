@@ -100,10 +100,26 @@ flag is high).
 
 In generation mode the output can be fed back to the inputs by calculating the deltas.
 
-Ideas
-=====
+Ideas and Notions
+=================
 
  * It might make sense to encode the locations of other targets in the order of distance, and using delta coding instead
 of absolute x and y.
  * Another neural network module could be used to predict spawning of new targets. The current data set does not have
    such effects, though.
+ * Using only the tracked target plus two others selected randomly, because the peer targets are symmetric and
+   do not bring relevant new information.
+ * It might make sense to pre-train a larger LSTM stack against a huge amount of analogous, but different data,
+   and then take that as the starting point.
+ * The number of learned parameters in the network should not greatly exceed the rough information content of the intuitive
+   model of the phenomenon.
+
+TODO
+====
+
+ * Clean up the code, modularize.
+ * Parametrize the learning process.
+ * Plot performance with different parameters.
+ * Define the goal performance level more exactly.
+ * Implement generator.
+ 

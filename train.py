@@ -47,7 +47,7 @@ def train(parameters, model, trainData, testingData):
                 if step % parameters['display_step'] == 0:
                     saver.save(sess, 'soccer-model', global_step=iter)
                     # Calculate batch accuracy
-                    error = sess.run(model['error'], feed_dict={model['x']: batch_xs, model['x']: batch_ys,
+                    error = sess.run(model['error'], feed_dict={model['x']: batch_xs, model['y']: batch_ys,
                                                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                         tf.float32).eval())})
                     # Calculate batch loss

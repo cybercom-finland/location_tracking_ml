@@ -37,8 +37,9 @@ def RNN(parameters, input, model, initial_state):
     # This is not well documented, but check for yourself here: https://goo.gl/NzA5pX
     input = tf.split(0, parameters['n_steps'], input) # n_steps * (batch_size, :)
 
+    print str(model['rnn_cell'])
     # Note: States is shaped: batch_size x cell.state_size
-    outputs, states = rnn.rnn(stacked_lstm, input, initial_state=initial_state)
+    outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
     # Only the last output is interesting for error back propagation and prediction.
     return (tf.matmul(outputs[-1], model['output_weights']) + model['output_bias'], states)
 
@@ -51,21 +52,26 @@ def create(parameters):
     lstm_state_size = np.sum(parameters['lstm_layers']) * 2
     # Note: Batch size is the first dimension in istate.
     istate = tf.placeholder("float", shape=(None, lstm_state_size), name='internal_state')
-    lr = tf.Variable(learning_rate, trainable=False, name='learning_rate')
+    lr = tf.Variable(parameters['learning_rate'], trainable=False, name='learning_rate')
 
+    # The target to track itself and its peers, each with x, y and velocity x and y.
+    input_size = (1 + parameters['n_peers']) * 4
     model = {
-        'input_weights': tf.Variable(tf.random_normal([3*4, n_hidden[1]]), name='input_weights'),
-        'input_bias': tf.Variable(tf.random_normal([3*4, n_hidden[1]]), name='input_bias'),
-        'output_weights': tf.Variable(tf.random_normal([n_hidden[1], n_output]), name='output_weights'),
-        'output_bias': tf.Variable(tf.random_normal([n_output]), name='output_bias')
+        'input_weights': tf.Variable(tf.random_normal([input_size, parameters['input_layer']]), name='input_weights'),
+        'input_bias': tf.Variable(tf.random_normal([parameters['input_layer']]), name='input_bias'),
+        'output_weights': tf.Variable(tf.random_normal([parameters['output_layer'], parameters['n_output']]),
+                                      name='output_weights'),
+        'output_bias': tf.Variable(tf.random_normal([parameters['n_output']]), name='output_bias'),
+        'rnn_cell': rnn_cell.MultiRNNCell(
+                map(lambda l: rnn_cell.BasicLSTMCell(l), parameters['lstm_layers'])
+            ),
+        'lr': lr,
+        'x': x,
+        'y': y,
+        'istate': istate
     }
     
-    # Define a stacked lstm with tensorflow
-    stacked_lstm = rnn.rnn(rnn_cell.MultiRNNCell([
-        rnn_cell.BasicLSTMCell(n_hidden[1], name='lstm1')], name='stacked_lstm')) #,
-        #rnn_cell.BasicLSTMCell(n_hidden3, input_size=n_hidden2, name='lstm2')])
-
-    pred, lastState = RNN(parameters, x, model, istate)
+    pred, last_state = RNN(parameters, x, model, istate)
     
     # Define loss and optimizer
     cost = tf.reduce_mean(tf.nn.l2_loss(pred-y)) # L2 loss for regression
@@ -74,4 +80,10 @@ def create(parameters):
     # Evaluate model. This is the average error.
     # We will take 1 m as the arbitrary goal post to be happy with the error.
     error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred-y, 2), 1)), 0)
-    return pred, cost, optimizer, lastState, error
+    model['pred'] = pred
+    model['last_state'] = last_state
+    model['cost'] = cost
+    model['optimizer'] = optimizer
+    model['error'] = error
+    
+    return model

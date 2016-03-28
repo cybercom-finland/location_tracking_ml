@@ -22,7 +22,7 @@ import train
 parameters = {
     'learning_rate': 0.003,
     'training_iters': 1000,
-    'display_step': 100,
+    'display_step': 10,
     'decay': 0.999994,
     'input_layer': 8,
     'lstm_layers': [8, 8],

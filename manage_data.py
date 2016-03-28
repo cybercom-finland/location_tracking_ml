@@ -47,7 +47,7 @@ def makeInputForTargetInd(data, targetInd):
     return newData;
     
 # Returns one sequence of n_steps.
-def getNextTrainingBatch(data, step):
+def getNextTrainingBatch(data, step, n_steps):
     disp = random.randint(1, len(data[:]) - n_steps - 1)
     Xtrack = np.array(data[disp:disp+n_steps])
     # Velocity is delta to the previous position.
@@ -57,11 +57,11 @@ def getNextTrainingBatch(data, step):
     #pylab.show()
     return np.vstack((Xtrack, Vtrack)), Ytrack
 
-def getNextTrainingBatchSequences(data, step, seqs):
+def getNextTrainingBatchSequences(data, step, seqs, n_steps):
     resultX = []
     resultY = []
     for seq in range(seqs):
-        sequenceX, sequenceY = getNextTrainingBatch(data, step)
+        sequenceX, sequenceY = getNextTrainingBatch(data, step, n_steps)
         resultX.append(sequenceX);
         resultY.append(sequenceY);
     return np.asarray(resultX), np.asarray(resultY)

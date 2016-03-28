@@ -59,7 +59,7 @@ def train(parameters, model, trainData, testingData):
                                                                                         tf.float32).eval())})
                     print "Prediction: " + str(prediction)
                     print "Reality: " + str(batch_ys)
-                    print "Iter " + str(step*batch_size) + ", Minibatch Loss= " + "{:.6f}".format(loss) + \
+                    print "Iter " + str(step*parameters['batch_size']) + ", Minibatch Loss= " + "{:.6f}".format(loss) + \
                          ", Training Error= " + "{:.5f}".format(error) + ", Learning rate= " + \
                          "{:.5f}".format(parameters['learning_rate'])
                 step += 1

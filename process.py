@@ -27,18 +27,16 @@ parameters = {
     'input_layer': 12,
     'lstm_layers': [8],
     'output_layer': 8,
-    
-    # Network Parameters
+    # How many targets are there
+    'n_targets': 23,
     # x, y for 3 targets
     # TODO: Add enabled flag
-    'n_input': 3*4,
+    'n_input': 23*4,
     # The minibatch is 10 sequences of 5 steps.
     'batch_size': 10,
     'n_steps': 5, # timesteps
     # x, y for 1 target. TODO: Add enabled flag.
-    'n_output': 2,
-    # How many peers to use in addition to the tracked target
-    'n_peers': 2
+    'n_output': 2
 }
 
 print str(parameters)

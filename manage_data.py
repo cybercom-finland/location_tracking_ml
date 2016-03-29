@@ -37,13 +37,8 @@ def divide(positionTracks):
 # Returns a properly shifted input for tracking the given target.
 def makeInputForTargetInd(data, targetInd):
     newData = list(data)
-    newData[:][0], newData[:][targetInd] = newData[:][targetInd], newData[:][0]
-    # Picking two random peers (23 is too many, and 1 is not robust against switch)
-    randomPeer1 = random.randint(1, 23)
-    newData[:][1], newData[:][randomPeer1] = newData[:][randomPeer1], newData[:][1]
-    randomPeer2 = random.randint(2, 23)
-    newData[:][2], newData[:][randomPeer2] = newData[:][randomPeer2], newData[:][2]
-    newData = map(lambda n: n[0:3], newData)
+    # Just moving the target player to the first position in the list.
+    newData = [newData[:][targetInd]] + [x for i,x in enumerate(newData) if i != targetInd]
     return newData;
     
 # Returns one sequence of n_steps.

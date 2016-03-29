@@ -73,8 +73,9 @@ def train(parameters, model, trainData, testingData):
                                                 model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                         tf.float32).eval())})
         print "Loss for just using the last known position as the prediction: " + str(trivialCost)
+        print "Error for just using the last known position as the prediction: " + str(trivialCost)
         # FIXME: This is still work in progress....
-        testData = manage_data.makeInputForTargetInd(test, 0)
+        testData = manage_data.makeInputForTargetInd(testingData, 0)
         test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, 0, test_len, parameters['n_steps'])
     
         test_x = test_xp.reshape((test_len, n_steps, n_input))

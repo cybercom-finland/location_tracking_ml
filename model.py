@@ -55,7 +55,7 @@ def create(parameters):
     lr = tf.Variable(parameters['learning_rate'], trainable=False, name='learning_rate')
 
     # The target to track itself and its peers, each with x, y and velocity x and y.
-    input_size = (1 + parameters['n_peers']) * 4
+    input_size = (parameters['n_targets']) * 4
     model = {
         'input_weights': tf.Variable(tf.random_normal([input_size, parameters['input_layer']], stddev=40.0), name='input_weights'),
         'input_bias': tf.Variable(tf.random_normal([parameters['input_layer']], stddev=40.0), name='input_bias'),

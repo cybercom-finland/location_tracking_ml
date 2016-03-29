@@ -20,12 +20,12 @@ import train
 
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.003,
-    'training_iters': 1000,
-    'display_step': 10,
-    'decay': 0.999994,
-    'input_layer': 8,
-    'lstm_layers': [8, 8],
+    'learning_rate': 0.005,
+    'training_iters': 10000,
+    'display_step': 100,
+    'decay': 0.9999,
+    'input_layer': 12,
+    'lstm_layers': [8],
     'output_layer': 8,
     
     # Network Parameters
@@ -40,6 +40,8 @@ parameters = {
     # How many peers to use in addition to the tracked target
     'n_peers': 2
 }
+
+print str(parameters)
 
 positionTracks = load_data.load_data()
 

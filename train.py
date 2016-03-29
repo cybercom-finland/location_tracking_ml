@@ -68,14 +68,14 @@ def train(parameters, model, trainData, testingData):
         test_len = parameters['batch_size'] # len(test) - 1
         
         testData = manage_data.makeInputForTargetInd(testingData, 0)
-        test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, 0, test_len)
+        test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, 0, test_len, parameters['n_steps'])
         trivialCost = sess.run(model['cost'], feed_dict={model['pred']: test_xp[:,1,0,:], model['y']: test_xp[:,0,0,:],
                                                 model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                         tf.float32).eval())})
         print "Loss for just using the last known position as the prediction: " + str(trivialCost)
         # FIXME: This is still work in progress....
         testData = manage_data.makeInputForTargetInd(test, 0)
-        test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, 0, test_len)
+        test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, 0, test_len, parameters['n_steps'])
     
         test_x = test_xp.reshape((test_len, n_steps, n_input))
         test_y = test_yp.reshape((test_len, n_output))

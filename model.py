@@ -57,13 +57,13 @@ def create(parameters):
     # The target to track itself and its peers, each with x, y and velocity x and y.
     input_size = (1 + parameters['n_peers']) * 4
     model = {
-        'input_weights': tf.Variable(tf.random_normal([input_size, parameters['input_layer']]), name='input_weights'),
-        'input_bias': tf.Variable(tf.random_normal([parameters['input_layer']]), name='input_bias'),
-        'output_weights': tf.Variable(tf.random_normal([parameters['output_layer'], parameters['n_output']]),
+        'input_weights': tf.Variable(tf.random_normal([input_size, parameters['input_layer']], stddev=40.0), name='input_weights'),
+        'input_bias': tf.Variable(tf.random_normal([parameters['input_layer']], stddev=40.0), name='input_bias'),
+        'output_weights': tf.Variable(tf.random_normal([parameters['output_layer'], parameters['n_output']], stddev=40.0),
                                       name='output_weights'),
-        'output_bias': tf.Variable(tf.random_normal([parameters['n_output']]), name='output_bias'),
+        'output_bias': tf.Variable(tf.random_normal([parameters['n_output']], stddev=40.0), name='output_bias'),
         'rnn_cell': rnn_cell.MultiRNNCell(
-                map(lambda l: rnn_cell.BasicLSTMCell(l), parameters['lstm_layers'])
+                map(lambda l: rnn_cell.LSTMCell(l, 12, cell_clip=10.0, use_peepholes=True), parameters['lstm_layers'])
             ),
         'lr': lr,
         'x': x,

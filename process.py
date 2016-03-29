@@ -20,8 +20,8 @@ import train
 
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.005,
-    'training_iters': 10000,
+    'learning_rate': 0.001,
+    'training_iters': 100000,
     'display_step': 100,
     'decay': 0.9999,
     'input_layer': 12,
@@ -33,7 +33,7 @@ parameters = {
     # TODO: Add enabled flag
     'n_input': 23*4,
     # The minibatch is 10 sequences of 5 steps.
-    'batch_size': 10,
+    'batch_size': 20,
     'n_steps': 5, # timesteps
     # x, y for 1 target. TODO: Add enabled flag.
     'n_output': 2
@@ -46,6 +46,8 @@ positionTracks = load_data.load_data()
 export_to_octave.export_to_octave(positionTracks)
 
 trainData, testData, validationData = manage_data.divide(positionTracks)
+
+export_to_octave.save('training.mat', 'training', trainData)
 
 network_model = model.create(parameters)
 

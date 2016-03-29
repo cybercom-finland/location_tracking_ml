@@ -12,6 +12,8 @@ import random
 import json
 import itertools
 
+import export_to_octave
+
 # Dividing into training, test and validation set based on time
 
 def toTensor(value):
@@ -49,12 +51,13 @@ def getNextTrainingBatch(data, step, n_steps):
     Ytrack = np.array(data[disp+n_steps])[0,:]
     #pylab.plot(Xtrack[:,0,0], Xtrack[:,0,1], [Xtrack[n_steps-1,0,0], Ytrack[0]], [Xtrack[n_steps-1,0,1], Ytrack[1]])
     #pylab.show()
-    return np.vstack((Xtrack, Vtrack)), Ytrack
+    return np.concatenate((Xtrack, Vtrack), axis=2), Ytrack
 
 def getNextTrainingBatchSequences(data, step, seqs, n_steps):
     resultX = []
     resultY = []
     for seq in range(seqs):
+        # Data is here a list of time, player, (x,y)
         sequenceX, sequenceY = getNextTrainingBatch(data, step, n_steps)
         resultX.append(sequenceX);
         resultY.append(sequenceY);

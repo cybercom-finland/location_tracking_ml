@@ -37,6 +37,8 @@ def train(parameters, model, trainData, testingData):
                 tf.assign(model['lr'], parameters['learning_rate'])
                 (batch_xs, batch_ys) = manage_data.getNextTrainingBatchSequences(trainingData, step - 1,
                     parameters['batch_size'], parameters['n_steps'])
+                
+                export_to_octave.save('batch_xs_before_reshape.mat', 'batch_xs_before_reshape', batch_xs)
                 # Reshape data to get batch_size sequences of n_steps elements with n_input values
                 batch_xs = batch_xs.reshape((parameters['batch_size'], parameters['n_steps'], parameters['n_input']))
                 batch_ys = batch_ys.reshape((parameters['batch_size'], parameters['n_output']))

@@ -3,4 +3,5 @@ tr-ft.json
 .pydevproject
 tracks.m
 prediction*.png
-
+*.mat
+soccer-model*

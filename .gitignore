@@ -2,4 +2,5 @@ tr-ft.json
 .project
 .pydevproject
 tracks.m
+prediction*.png
 

@@ -23,7 +23,6 @@ def divide(positionTracks):
     
     print('Dividing into training, test and validation sets.')
     
-    # Taking only 100000 first ones to save memory.
     input = map(lambda l: list(l.itervalues()), positionTracks)
     third = len(input)/3
     train = input[0:third]

@@ -5,6 +5,13 @@ This generated data can be used in simulation environments to simulate human beh
 
 The goal is to take into account the spatial flow, temporal dynamics and cooperative group behavior.
 
+Requirements
+============
+
+`sudo apt-get install python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose`
+
+[https://www.tensorflow.org/versions/r0.7/get_started/os_setup.html#download-and-setup](https://www.tensorflow.org/versions/r0.7/get_started/os_setup.html#download-and-setup)
+
 Dataset
 =======
 

@@ -20,12 +20,12 @@ import train
 
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.02,
+    'learning_rate': 0.01,
     'training_iters': 10000,
-    'display_step': 50,
+    'display_step': 10,
     'decay': 0.99995,
     'input_layer': None,
-    'lstm_layers': [8,4],
+    'lstm_layers': [16],
     # How many targets are there
     'n_targets': 23,
     'n_peers': 2,

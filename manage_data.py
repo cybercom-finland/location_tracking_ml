@@ -40,7 +40,7 @@ def makeInputForTargetInd(data, targetInd):
     newData = np.asarray(data)
     # Just moving the target player to the first position in the list.
     newData[:,[targetInd, 0], :] = newData[:,[0, targetInd], :]
-    return list(newData);
+    return newData;
     
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step, n_steps, n_peers):
@@ -49,12 +49,14 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     
     # A random displacement to take the batch from.
     disp = random.randint(1, len(data[:]) - n_steps - 1)
-    Xtrack = np.array(data[disp:disp+n_steps])
+    # Data shape: (22677, 23, 2)
+    Xtrack = np.array(data[disp:disp+n_steps,:,:])
     # Velocity is delta to the previous position.
-    Vtrack = np.array(np.array(data[disp:disp+n_steps])-np.array(data[disp-1:disp+n_steps-1]))
+    
+    Vtrack = data[disp:disp+n_steps,:,:] - data[disp-1:disp+n_steps-1,:,:]
     # We will try to predict delta to the previous positions, because otherwise the "constant" component
     # dominates the error, and the all important delta is not well learned.
-    Ytrack = np.array(data[disp+n_steps])[0,:] - np.array(data[disp+n_steps-1])[0,:]
+    Ytrack = data[disp+n_steps,0,:] - data[disp+n_steps-1,0,:]
     
     batch_input = np.concatenate((Xtrack, Vtrack), axis=2)
     

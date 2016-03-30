@@ -33,6 +33,7 @@ def train(parameters, model, trainData, testingData):
             print('Creating input data for the target: ' + str(targetInd))
             # Choosing the target to track
             trainingData = manage_data.makeInputForTargetInd(trainData, targetInd)
+            export_to_octave.save('training_data_d.mat', 'trainingData', trainingData)
             # The targetInd is pretty much arbitrary here, could be random, could be 0, but we'll use targetInd.
             testData = manage_data.makeInputForTargetInd(testingData, targetInd)
             
@@ -41,18 +42,23 @@ def train(parameters, model, trainData, testingData):
             while step * parameters['batch_size'] < parameters['training_iters']:
                 parameters['learning_rate'] = parameters['learning_rate'] * parameters['decay'];
                 tf.assign(model['lr'], parameters['learning_rate'])
-                (batch_xs, batch_ys) = manage_data.getNextTrainingBatchSequences(trainingData, step - 1,
+                (batch_xsp, batch_ysp) = manage_data.getNextTrainingBatchSequences(trainingData, step - 1,
                     parameters['batch_size'], parameters['n_steps'], parameters['n_peers'])
                 
-                export_to_octave.save('batch_xs_before_reshape.mat', 'batch_xs_before_reshape', batch_xs)
+                export_to_octave.save('batch_xs_before_reshape.mat', 'batch_xs_before_reshape', batch_xsp)
                 # Reshape data to get batch_size sequences of n_steps elements with n_input values
-                batch_xs = batch_xs.reshape((parameters['batch_size'], parameters['n_steps'], parameters['n_input']))
-                batch_ys = batch_ys.reshape((parameters['batch_size'], parameters['n_output']))
+                batch_xs = batch_xsp.reshape((parameters['batch_size'], parameters['n_steps'], parameters['n_input']))
+                batch_ys = batch_ysp.reshape((parameters['batch_size'], parameters['n_output']))
                 # Fit training using batch data
                 sess.run(model['optimizer'], feed_dict={model['x']: batch_xs, model['y']: batch_ys,
                     model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                              tf.float32).eval())})
                 if step % parameters['display_step'] == 0:
+                    test_len = parameters['batch_size']
+                    
+                    testTarget = random.randint(0,23-1)
+                    predictedBatch = random.randint(0,test_len-1)
+                    
                     saver.save(sess, 'soccer-model', global_step=iter)
                     
                     # For debugging, exporting a couple of arrays to Octave.
@@ -65,12 +71,30 @@ def train(parameters, model, trainData, testingData):
                                                                                  tf.float32).eval())})
                     
                     trainErrorTrend.append(error)
+
+                    print "Test target: " + str(testTarget)
+                    print "Batch: " + str(predictedBatch)
+                    prediction = sess.run(model['pred'], feed_dict={model['x']: batch_xs,
+                        model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
+                                                                                 tf.float32).eval())})
+                    pylab.clf()
+                    pylab.plot(batch_xsp[predictedBatch,:,0,0], batch_xsp[predictedBatch,:,0,1],
+                             [batch_xsp[predictedBatch,parameters['n_steps']-1,0,0],
+                              batch_xsp[predictedBatch,parameters['n_steps']-1,0,0] +
+                                  prediction[predictedBatch,0]],
+                             [batch_xsp[predictedBatch,parameters['n_steps']-1,0,1],
+                              batch_xsp[predictedBatch,parameters['n_steps']-1,0,1] +
+                                  prediction[predictedBatch,1]],
+                             [batch_xsp[predictedBatch,parameters['n_steps']-1,0,0],
+                              batch_xsp[predictedBatch,parameters['n_steps']-1,0,0] +
+                                  batch_ysp[predictedBatch,0]],
+                             [batch_xsp[predictedBatch,parameters['n_steps']-1,0,1],
+                              batch_xsp[predictedBatch,parameters['n_steps']-1,0,1] +
+                                  batch_ysp[predictedBatch,1]]);
+                    pylab.savefig('prediction_train_' + str(iter) + '.png')
                     
                     # Calculate batch loss
                     loss = sess.run(model['cost'], feed_dict={model['x']: batch_xs, model['y']: batch_ys,
-                        model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
-                                                                                 tf.float32).eval())})
-                    prediction = sess.run(model['pred'], feed_dict={model['x']: batch_xs,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                  tf.float32).eval())})
                     export_to_octave.save('prediction.mat', 'prediction', prediction)
@@ -81,11 +105,6 @@ def train(parameters, model, trainData, testingData):
                         ", Training Error= " + "{:.5f}".format(error) + ", Learning rate= " + \
                         "{:.5f}".format(parameters['learning_rate'])
 
-                    test_len = parameters['batch_size']
-                    
-                    testTarget = random.randint(0,23-1)
-                    predictedBatch = random.randint(0,test_len-1)
-                    
                     test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, testTarget, test_len,
                                                                                  parameters['n_steps'],
                                                                                  parameters['n_peers'])

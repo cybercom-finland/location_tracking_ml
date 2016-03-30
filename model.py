@@ -84,12 +84,13 @@ def create(parameters):
     pred, last_state = RNN(parameters, x, model, istate)
     
     # Define loss and optimizer
-    cost = tf.reduce_mean(tf.nn.l2_loss(pred-y)) # L2 loss for regression
-    optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
-    
+    # cost = tf.reduce_mean(tf.sqrt(tf.nn.l2_loss(pred-y)) # L2 loss for regression
     # Evaluate model. This is the average error.
     # We will take 1 m as the arbitrary goal post to be happy with the error.
     error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred-y, 2), 1)), 0)
+    cost = error
+    optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
+    
     model['pred'] = pred
     model['last_state'] = last_state
     model['cost'] = cost

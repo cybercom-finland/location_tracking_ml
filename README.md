@@ -112,13 +112,24 @@ Results
 
 For the following parameters:
 
-{'n_input': 12, 'learning_rate': 0.02, 'batch_size': 16, 'training_iters': 10000, 'lstm_layers': [8, 4], 'n_steps': 5, 'n_output': 2, 'decay': 0.99995, 'input_layer': None, 'display_step': 50, 'n_targets': 23, 'n_peers': 2, 'lstm_clip': 10.0}
+{'n_input': 12, 'learning_rate': 0.01, 'batch_size': 16, 'training_iters': 10000, 'lstm_layers': [16], 'n_steps': 5, 'n_output': 2, 'decay': 0.99995, 'input_layer': None, 'display_step': 10, 'n_targets': 23, 'n_peers': 2, 'lstm_clip': 10.0}
 
 We get:
 
 ![mean_error_training_and_test.png](mean_error_training_and_test.png)
 
+Some unexpected peaks are visible at some test set points. These can be due to weird data in the test sets, or due to
+these regions not being represented in the training set. The source data is a bit sketchy, considering a significant portion
+of it goes outside of the field and bounces around at a significant portion of the speed of light.
+
 Both converge pretty fast to a value roughly corresponding the error of 0.2 m.
+
+Example prediction after 4638 iterations, the blue is the track so far, the green shows the predicted position, and the red shows the real subsequent position:
+
+![example_prediction.png](example_prediction.png)
+
+The example is predicted from the test set, so is not in the training material, i.e. seen before by the system.
+Not all predictions go as well, but the general error is below 0.2 m.
 
 Ideas and Notions
 =================

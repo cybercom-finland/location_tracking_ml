@@ -109,7 +109,7 @@ def train(parameters, model, trainData, testingData):
                              [test_xp[0,parameters['n_steps']-1,0,1], prediction[0,1]],
                              [test_xp[0,parameters['n_steps']-1,0,0], test_yp[0,0]],
                              [test_xp[0,parameters['n_steps']-1,0,1], test_yp[0,1]]);
-                    pylab.savefig('prediction' + str(step) + '.png')
+                    pylab.savefig('prediction' + str(iter) + '.png')
 
                 iter += 1
                 step += 1

@@ -37,7 +37,7 @@ def divide(positionTracks):
 
 # Returns a properly shifted input for tracking the given target.
 def makeInputForTargetInd(data, targetInd):
-    newData = np.asarray(data)
+    newData = np.copy(np.asarray(data))
     # Just moving the target player to the first position in the list.
     newData[:,[targetInd, 0], :] = newData[:,[0, targetInd], :]
     return newData;
@@ -50,7 +50,7 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     # A random displacement to take the batch from.
     disp = random.randint(1, len(data[:]) - n_steps - 1)
     # Data shape: (22677, 23, 2)
-    Xtrack = np.array(data[disp:disp+n_steps,:,:])
+    Xtrack = np.copy(np.array(data[disp:disp+n_steps,:,:]))
     # Velocity is delta to the previous position.
     
     Vtrack = data[disp:disp+n_steps,:,:] - data[disp-1:disp+n_steps-1,:,:]
@@ -63,10 +63,10 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     # We will select n_peers random peers and leave out the rest.
     newPeerIndex = 1
     # All time indices for the target to track.
-    final_batch = batch_input[:,0:newPeerIndex,:]
+    final_batch = np.copy(batch_input[:,0:newPeerIndex,:])
     for peer in random.sample(range(1,23), n_peers):
         # Taking the beginning and concatenating the data of the next selected peer in the input dimension.
-        selected_peer = batch_input[:,peer:peer+1,:]
+        selected_peer = np.copy(batch_input[:,peer:peer+1,:])
         final_batch = np.concatenate((final_batch, selected_peer), axis=1)
         newPeerIndex += 1
     

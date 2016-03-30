@@ -74,7 +74,7 @@ def train(parameters, model, trainData, testingData):
 
                     print "Test target: " + str(testTarget)
                     print "Batch: " + str(predictedBatch)
-                    prediction = sess.run(model['pred'], feed_dict={model['x']: batch_xs,
+                    prediction, state = sess.run(model['pred'], feed_dict={model['x']: batch_xs,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                  tf.float32).eval())})
                     pylab.clf()
@@ -121,7 +121,7 @@ def train(parameters, model, trainData, testingData):
                     print "Testing Error:", testError
                     export_to_octave.save('train_error.mat', 'train_error', trainErrorTrend)
                     export_to_octave.save('test_error.mat', 'test_error', testErrorTrend)
-                    prediction = sess.run(model['pred'], feed_dict={model['x']: test_x,
+                    prediction, state = sess.run(model['pred'], feed_dict={model['x']: test_x,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                  tf.float32).eval())})
                     export_to_octave.save('test_prediction.mat', 'test_prediction', prediction)

@@ -131,6 +131,18 @@ Example prediction after 4638 iterations, the blue is the track so far, the gree
 The example is predicted from the test set, so is not in the training material, i.e. seen before by the system.
 Not all predictions go as well, but the general error is below 0.2 m.
 
+Generative Mode
+===============
+
+The generation is done by feeding positions of three peers one by one to the bank of three LSTMs, and iterating.
+There is no limit on the number of LSTM modules to use, but there should be at least three, because the module
+was trained with two peer targets.
+
+With no random component included, the position generation is completely deterministic. Technically we could include
+some noise to the sequence, to generate varying traces. This is mathematically valid if we interpret the output
+of the LSTM to represent the expected value of some distribution. Other distribution parameters could be estimated
+by testing the system against the test set data.
+
 Ideas and Notions
 =================
 

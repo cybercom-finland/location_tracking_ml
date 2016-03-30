@@ -83,10 +83,13 @@ def train(parameters, model, trainData, testingData):
 
                     test_len = parameters['batch_size']
                     
-                    test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, 0, test_len,
+                    testTarget = random.randint(0,23-1)
+                    predictedBatch = random.randint(0,test_len-1)
+                    
+                    test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, testTarget, test_len,
                                                                                  parameters['n_steps'],
                                                                                  parameters['n_peers'])
-                
+
                     test_x = test_xp.reshape((test_len, parameters['n_steps'], parameters['n_input']))
                     test_y = test_yp.reshape((test_len, parameters['n_output']))
                     export_to_octave.save('test_xp.mat', 'test_xp', test_x)
@@ -104,11 +107,19 @@ def train(parameters, model, trainData, testingData):
                                                                                  tf.float32).eval())})
                     export_to_octave.save('test_prediction.mat', 'test_prediction', prediction)
                     pylab.clf()
-                    pylab.plot(test_xp[0,:,0,0], test_xp[0,:,0,1],
-                             [test_xp[0,parameters['n_steps']-1,0,0], test_xp[0,parameters['n_steps']-1,0,0] + prediction[0,0]],
-                             [test_xp[0,parameters['n_steps']-1,0,1], test_xp[0,parameters['n_steps']-1,0,1] + prediction[0,1]],
-                             [test_xp[0,parameters['n_steps']-1,0,0], test_xp[0,parameters['n_steps']-1,0,0] + test_yp[0,0]],
-                             [test_xp[0,parameters['n_steps']-1,0,1], test_xp[0,parameters['n_steps']-1,0,1] + test_yp[0,1]]);
+                    pylab.plot(test_xp[predictedBatch,:,0,0], test_xp[predictedBatch,:,0,1],
+                             [test_xp[predictedBatch,parameters['n_steps']-1,0,0],
+                              test_xp[predictedBatch,parameters['n_steps']-1,0,0] +
+                                  prediction[predictedBatch,0]],
+                             [test_xp[predictedBatch,parameters['n_steps']-1,0,1],
+                              test_xp[predictedBatch,parameters['n_steps']-1,0,1] +
+                                  prediction[predictedBatch,1]],
+                             [test_xp[predictedBatch,parameters['n_steps']-1,0,0],
+                              test_xp[predictedBatch,parameters['n_steps']-1,0,0] +
+                                  test_yp[predictedBatch,0]],
+                             [test_xp[predictedBatch,parameters['n_steps']-1,0,1],
+                              test_xp[predictedBatch,parameters['n_steps']-1,0,1] +
+                                  test_yp[predictedBatch,1]]);
                     pylab.savefig('prediction' + str(iter) + '.png')
 
                 iter += 1

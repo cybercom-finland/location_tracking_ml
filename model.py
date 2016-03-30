@@ -42,7 +42,7 @@ def RNN(parameters, input, model, initial_state):
     # Note: States is shaped: batch_size x cell.state_size
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
     # Only the last output is interesting for error back propagation and prediction.
-    return (tf.matmul(outputs[-1], model['output_weights']) + model['output_bias'], states)
+    return (tf.tanh(tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']), states)
 
 def create(parameters):
     print('Creating the neural network model.')

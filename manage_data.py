@@ -37,10 +37,10 @@ def divide(positionTracks):
 
 # Returns a properly shifted input for tracking the given target.
 def makeInputForTargetInd(data, targetInd):
-    newData = list(data)
+    newData = np.asarray(data)
     # Just moving the target player to the first position in the list.
-    newData = [newData[:][targetInd]] + [x for i,x in enumerate(newData) if i != targetInd]
-    return newData;
+    newData[:,[targetInd, 0], :] = newData[:,[0, targetInd], :]
+    return list(newData);
     
 # Returns one sequence of n_steps.
 def getNextTrainingBatch(data, step, n_steps, n_peers):

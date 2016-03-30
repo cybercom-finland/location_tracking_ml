@@ -20,12 +20,12 @@ import train
 
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.01,
+    'learning_rate': 0.02,
     'training_iters': 10000,
     'display_step': 50,
     'decay': 0.99995,
     'input_layer': None,
-    'lstm_layers': [16,4],
+    'lstm_layers': [8,4],
     # How many targets are there
     'n_targets': 23,
     'n_peers': 2,
@@ -37,7 +37,7 @@ parameters = {
     'n_steps': 5, # timesteps
     # x, y for 1 target. TODO: Add enabled flag.
     'n_output': 2,
-    'lstm_clip': 50.0
+    'lstm_clip': 10.0
 }
 
 print str(parameters)

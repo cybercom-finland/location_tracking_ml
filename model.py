@@ -30,7 +30,8 @@ def RNN(parameters, input, model, initial_state):
     input = tf.reshape(input, [-1, parameters['n_input']]) # (n_steps*batch_size, n_input)
     
     # 1. layer, linear activation for each batch and step.
-    input = tf.matmul(input, model['input_weights']) + model['input_bias']
+    if (model.has_key('input_weights')):
+        input = tf.matmul(input, model['input_weights']) + model['input_bias']
 
     # Split data because rnn cell needs a list of inputs for the RNN inner loop,
     # that is, a n_steps length list of tensors shaped: (batch_size, n_inputs)
@@ -56,20 +57,30 @@ def create(parameters):
 
     # The target to track itself and its peers, each with x, y and velocity x and y.
     input_size = (parameters['n_targets']) * 4
+    inputToRnn = parameters['input_layer']
+    if (parameters['input_layer'] == None):
+        inputToRnn = parameters['n_input']
+        
     model = {
-        'input_weights': tf.Variable(tf.random_normal([input_size, parameters['input_layer']], stddev=40.0), name='input_weights'),
-        'input_bias': tf.Variable(tf.random_normal([parameters['input_layer']], stddev=40.0), name='input_bias'),
-        'output_weights': tf.Variable(tf.random_normal([parameters['output_layer'], parameters['n_output']], stddev=40.0),
+        'output_weights': tf.Variable(tf.random_normal([parameters['output_layer'], parameters['n_output']]),
                                       name='output_weights'),
-        'output_bias': tf.Variable(tf.random_normal([parameters['n_output']], stddev=40.0), name='output_bias'),
+        'output_bias': tf.Variable(tf.random_normal([parameters['n_output']]), name='output_bias'),
         'rnn_cell': rnn_cell.MultiRNNCell(
-                map(lambda l: rnn_cell.LSTMCell(l, 12, cell_clip=10.0, use_peepholes=True), parameters['lstm_layers'])
+                # TODO: This does not yet support multiple layers with different input sizes. Should zip through
+                #       an array here.
+                map(lambda l: rnn_cell.LSTMCell(l, inputToRnn, cell_clip=10.0, use_peepholes=True),
+                    parameters['lstm_layers'])
             ),
         'lr': lr,
         'x': x,
         'y': y,
         'istate': istate
     }
+    if (parameters['input_layer'] <> None):
+        model['input_weights'] = tf.Variable(tf.random_normal(
+            [input_size, parameters['input_layer']]), name='input_weights')
+        model['input_bias'] = tf.Variable(tf.random_normal([parameters['input_layer']]), name='input_bias')
+
     
     pred, last_state = RNN(parameters, x, model, istate)
     

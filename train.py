@@ -26,17 +26,23 @@ def train(parameters, model, trainData, testingData):
     
         # FIXME: This is still work in progress....
         iter = 1
+        trainErrorTrend = []
+        testErrorTrend = []
+        
         for targetInd in range(23):
             print('Creating input data for the target: ' + str(targetInd))
             # Choosing the target to track
             trainingData = manage_data.makeInputForTargetInd(trainData, targetInd)
+            # The targetInd is pretty much arbitrary here, could be random, could be 0, but we'll use targetInd.
+            testData = manage_data.makeInputForTargetInd(testingData, targetInd)
+            
             print('Training target: ' + str(targetInd))
             step = 1
             while step * parameters['batch_size'] < parameters['training_iters']:
                 parameters['learning_rate'] = parameters['learning_rate'] * parameters['decay'];
                 tf.assign(model['lr'], parameters['learning_rate'])
                 (batch_xs, batch_ys) = manage_data.getNextTrainingBatchSequences(trainingData, step - 1,
-                    parameters['batch_size'], parameters['n_steps'])
+                    parameters['batch_size'], parameters['n_steps'], parameters['n_peers'])
                 
                 export_to_octave.save('batch_xs_before_reshape.mat', 'batch_xs_before_reshape', batch_xs)
                 # Reshape data to get batch_size sequences of n_steps elements with n_input values
@@ -57,6 +63,9 @@ def train(parameters, model, trainData, testingData):
                     error = sess.run(model['error'], feed_dict={model['x']: batch_xs, model['y']: batch_ys,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                  tf.float32).eval())})
+                    
+                    trainErrorTrend.append(error)
+                    
                     # Calculate batch loss
                     loss = sess.run(model['cost'], feed_dict={model['x']: batch_xs, model['y']: batch_ys,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
@@ -74,19 +83,22 @@ def train(parameters, model, trainData, testingData):
 
                     test_len = parameters['batch_size']
                     
-                    # FIXME: This is still work in progress....
-                    testData = manage_data.makeInputForTargetInd(testingData, 0)
                     test_xp, test_yp = manage_data.getNextTrainingBatchSequences(testData, 0, test_len,
-                                                                                 parameters['n_steps'])
+                                                                                 parameters['n_steps'],
+                                                                                 parameters['n_peers'])
                 
                     test_x = test_xp.reshape((test_len, parameters['n_steps'], parameters['n_input']))
                     test_y = test_yp.reshape((test_len, parameters['n_output']))
                     export_to_octave.save('test_xp.mat', 'test_xp', test_x)
                     export_to_octave.save('test_yp.mat', 'test_yp', test_y)
-                    print "Testing Error:", sess.run(model['error'], feed_dict={model['x']: test_x,
-                                                                                model['y']: test_y,
+                    testError = sess.run(model['error'], feed_dict={model['x']: test_x,
+                        model['y']: test_y,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                          tf.float32).eval())})
+                    testErrorTrend.append(testError)
+                    print "Testing Error:", testError
+                    export_to_octave.save('train_error.mat', 'train_error', trainErrorTrend)
+                    export_to_octave.save('test_error.mat', 'test_error', testErrorTrend)
                     prediction = sess.run(model['pred'], feed_dict={model['x']: test_x,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                  tf.float32).eval())})

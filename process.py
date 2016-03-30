@@ -20,18 +20,20 @@ import train
 
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.001,
-    'training_iters': 100000,
-    'display_step': 100,
+    'learning_rate': 0.01,
+    'training_iters': 10000,
+    'display_step': 10,
     'decay': 0.9999,
-    'input_layer': 12,
-    'lstm_layers': [8],
-    'output_layer': 8,
+    'input_layer': None,
+    'lstm_layers': [12,12],
+    # FIXME: For now, these must be equal.
+    'output_layer': 12,
     # How many targets are there
     'n_targets': 23,
+    'n_peers': 2,
     # x, y for 3 targets
     # TODO: Add enabled flag
-    'n_input': 23*4,
+    'n_input': 3*4,
     # The minibatch is 10 sequences of 5 steps.
     'batch_size': 20,
     'n_steps': 5, # timesteps

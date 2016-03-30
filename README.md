@@ -134,6 +134,8 @@ Ideas and Notions
    and then take that as the starting point.
  * The number of learned parameters in the network should not greatly exceed the rough information content of the intuitive
    model of the phenomenon.
+ * Predicting difference to the last position might be more successful.
+ * Loss based on radial coordinates might be more pleasing to the eye.
 
 TODO
 ====

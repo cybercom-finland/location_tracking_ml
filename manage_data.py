@@ -52,7 +52,9 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     Xtrack = np.array(data[disp:disp+n_steps])
     # Velocity is delta to the previous position.
     Vtrack = np.array(np.array(data[disp:disp+n_steps])-np.array(data[disp-1:disp+n_steps-1]))
-    Ytrack = np.array(data[disp+n_steps])[0,:]
+    # We will try to predict delta to the previous positions, because otherwise the "constant" component
+    # dominates the error, and the all important delta is not well learned.
+    Ytrack = np.array(data[disp+n_steps])[0,:] - np.array(data[disp+n_steps-1])[0,:]
     
     batch_input = np.concatenate((Xtrack, Vtrack), axis=2)
     
@@ -64,7 +66,7 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
         # Taking the beginning and concatenating the data of the next selected peer in the input dimension.
         selected_peer = batch_input[:,peer:peer+1,:]
         final_batch = np.concatenate((final_batch, selected_peer), axis=1)
-        newPeerIndex += 4
+        newPeerIndex += 1
     
     return final_batch, Ytrack
 

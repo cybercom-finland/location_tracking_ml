@@ -56,13 +56,15 @@ def create(parameters):
     lr = tf.Variable(parameters['learning_rate'], trainable=False, name='learning_rate')
 
     # The target to track itself and its peers, each with x, y and velocity x and y.
-    input_size = (parameters['n_targets']) * 4
+    input_size = (parameters['n_peers'] + 1) * 4
     inputToRnn = parameters['input_layer']
     if (parameters['input_layer'] == None):
         inputToRnn = parameters['n_input']
 
     cells = [rnn_cell.LSTMCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn,
-                               cell_clip=10.0, use_peepholes=True) for i,l in enumerate(parameters['lstm_layers'])] 
+                               cell_clip=parameters['lstm_clip'], use_peepholes=True) for i,l in enumerate(parameters['lstm_layers'])] 
+    # TODO: GRUCell cupport here.
+    # cells = [rnn_cell.GRUCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn) for i,l in enumerate(parameters['lstm_layers'])]
     model = {
         'output_weights': tf.Variable(tf.random_normal([parameters['lstm_layers'][-1], parameters['n_output']]),
                                       name='output_weights'),

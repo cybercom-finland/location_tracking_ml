@@ -22,21 +22,22 @@ import train
 parameters = {
     'learning_rate': 0.01,
     'training_iters': 10000,
-    'display_step': 10,
-    'decay': 0.99999,
+    'display_step': 50,
+    'decay': 0.99995,
     'input_layer': None,
-    'lstm_layers': [24,12],
+    'lstm_layers': [16,4],
     # How many targets are there
     'n_targets': 23,
     'n_peers': 2,
     # x, y for 3 targets
     # TODO: Add enabled flag
     'n_input': 3*4,
-    # The minibatch is 10 sequences of 5 steps.
-    'batch_size': 20,
+    # The minibatch is 16 sequences of 5 steps.
+    'batch_size': 16,
     'n_steps': 5, # timesteps
     # x, y for 1 target. TODO: Add enabled flag.
-    'n_output': 2
+    'n_output': 2,
+    'lstm_clip': 50.0
 }
 
 print str(parameters)

@@ -105,10 +105,10 @@ def train(parameters, model, trainData, testingData):
                     export_to_octave.save('test_prediction.mat', 'test_prediction', prediction)
                     pylab.clf()
                     pylab.plot(test_xp[0,:,0,0], test_xp[0,:,0,1],
-                             [test_xp[0,parameters['n_steps']-1,0,0], prediction[0,0]],
-                             [test_xp[0,parameters['n_steps']-1,0,1], prediction[0,1]],
-                             [test_xp[0,parameters['n_steps']-1,0,0], test_yp[0,0]],
-                             [test_xp[0,parameters['n_steps']-1,0,1], test_yp[0,1]]);
+                             [test_xp[0,parameters['n_steps']-1,0,0], test_xp[0,parameters['n_steps']-1,0,0] + prediction[0,0]],
+                             [test_xp[0,parameters['n_steps']-1,0,1], test_xp[0,parameters['n_steps']-1,0,1] + prediction[0,1]],
+                             [test_xp[0,parameters['n_steps']-1,0,0], test_xp[0,parameters['n_steps']-1,0,0] + test_yp[0,0]],
+                             [test_xp[0,parameters['n_steps']-1,0,1], test_xp[0,parameters['n_steps']-1,0,1] + test_yp[0,1]]);
                     pylab.savefig('prediction' + str(iter) + '.png')
 
                 iter += 1

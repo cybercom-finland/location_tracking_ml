@@ -107,11 +107,20 @@ flag is high).
 
 In generation mode the output can be fed back to the inputs by calculating the deltas.
 
+Results
+=======
+
+For the following parameters:
+
+{'output_layer': 12, 'n_input': 12, 'learning_rate': 0.01, 'batch_size': 20, 'training_iters': 10000, 'lstm_layers': [12, 12], 'n_steps': 5, 'n_output': 2, 'decay': 0.9999, 'input_layer': None, 'display_step': 10, 'n_targets': 23, 'n_peers': 2}
+
+We get:
+
+![mean_error_training_and_test.png](mean_error_training_and_test.png)
+
 Ideas and Notions
 =================
 
- * It might make sense to encode the locations of other targets in the order of distance, and using delta coding instead
-of absolute x and y.
  * Another neural network module could be used to predict spawning of new targets. The current data set does not have
    such effects, though.
  * Using only the tracked target plus two others selected randomly, because the peer targets are symmetric and
@@ -124,9 +133,6 @@ of absolute x and y.
 TODO
 ====
 
- * Clean up the code, modularize.
- * Parametrize the learning process.
  * Plot performance with different parameters.
  * Define the goal performance level more exactly.
  * Implement generator.
- 

@@ -23,11 +23,9 @@ parameters = {
     'learning_rate': 0.01,
     'training_iters': 10000,
     'display_step': 10,
-    'decay': 0.9999,
+    'decay': 0.99999,
     'input_layer': None,
-    'lstm_layers': [12,12],
-    # FIXME: For now, these must be equal.
-    'output_layer': 12,
+    'lstm_layers': [24,12],
     # How many targets are there
     'n_targets': 23,
     'n_peers': 2,

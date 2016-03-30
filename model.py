@@ -60,17 +60,14 @@ def create(parameters):
     inputToRnn = parameters['input_layer']
     if (parameters['input_layer'] == None):
         inputToRnn = parameters['n_input']
-        
+
+    cells = [rnn_cell.LSTMCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn,
+                               cell_clip=10.0, use_peepholes=True) for i,l in enumerate(parameters['lstm_layers'])] 
     model = {
-        'output_weights': tf.Variable(tf.random_normal([parameters['output_layer'], parameters['n_output']]),
+        'output_weights': tf.Variable(tf.random_normal([parameters['lstm_layers'][-1], parameters['n_output']]),
                                       name='output_weights'),
         'output_bias': tf.Variable(tf.random_normal([parameters['n_output']]), name='output_bias'),
-        'rnn_cell': rnn_cell.MultiRNNCell(
-                # TODO: This does not yet support multiple layers with different input sizes. Should zip through
-                #       an array here.
-                map(lambda l: rnn_cell.LSTMCell(l, inputToRnn, cell_clip=10.0, use_peepholes=True),
-                    parameters['lstm_layers'])
-            ),
+        'rnn_cell': rnn_cell.MultiRNNCell(cells),
         'lr': lr,
         'x': x,
         'y': y,

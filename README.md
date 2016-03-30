@@ -112,7 +112,7 @@ Results
 
 For the following parameters:
 
-{'output_layer': 12, 'n_input': 12, 'learning_rate': 0.01, 'batch_size': 20, 'training_iters': 10000, 'lstm_layers': [12, 12], 'n_steps': 5, 'n_output': 2, 'decay': 0.9999, 'input_layer': None, 'display_step': 10, 'n_targets': 23, 'n_peers': 2}
+{'n_input': 12, 'learning_rate': 0.01, 'batch_size': 20, 'training_iters': 10000, 'lstm_layers': [12, 12], 'n_steps': 5, 'n_output': 2, 'decay': 0.9999, 'input_layer': None, 'display_step': 10, 'n_targets': 23, 'n_peers': 2}
 
 We get:
 

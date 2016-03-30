@@ -112,16 +112,13 @@ Results
 
 For the following parameters:
 
-{'n_input': 12, 'learning_rate': 0.01, 'batch_size': 20, 'training_iters': 10000, 'lstm_layers': [12, 12], 'n_steps': 5, 'n_output': 2, 'decay': 0.9999, 'input_layer': None, 'display_step': 10, 'n_targets': 23, 'n_peers': 2}
+{'n_input': 12, 'learning_rate': 0.02, 'batch_size': 16, 'training_iters': 10000, 'lstm_layers': [8, 4], 'n_steps': 5, 'n_output': 2, 'decay': 0.99995, 'input_layer': None, 'display_step': 50, 'n_targets': 23, 'n_peers': 2, 'lstm_clip': 10.0}
 
 We get:
 
 ![mean_error_training_and_test.png](mean_error_training_and_test.png)
 
-As the test set error converges at about 7 m, this is not an acceptable level
-of performance. Training set converges at about 2 m error. Even the 2 m is too
-high, and this means that we either have too fast decay for the learning rate,
-or too few parameters for the network.
+Both converge pretty fast to a value roughly corresponding the error of 0.2 m.
 
 Ideas and Notions
 =================
@@ -130,12 +127,7 @@ Ideas and Notions
    such effects, though.
  * Using only the tracked target plus two others selected randomly, because the peer targets are symmetric and
    do not bring relevant new information.
- * It might make sense to pre-train a larger LSTM stack against a huge amount of analogous, but different data,
-   and then take that as the starting point.
- * The number of learned parameters in the network should not greatly exceed the rough information content of the intuitive
-   model of the phenomenon.
- * Predicting difference to the last position might be more successful.
- * Loss based on radial coordinates might be more pleasing to the eye.
+ * Predicting difference to the last position is more successful than predicting absolute position.
 
 TODO
 ====

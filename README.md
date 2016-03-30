@@ -118,6 +118,11 @@ We get:
 
 ![mean_error_training_and_test.png](mean_error_training_and_test.png)
 
+As the test set error converges at about 7 m, this is not an acceptable level
+of performance. Training set converges at about 2 m error. Even the 2 m is too
+high, and this means that we either have too fast decay for the learning rate,
+or too few parameters for the network.
+
 Ideas and Notions
 =================
 

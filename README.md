@@ -155,6 +155,10 @@ We see some coordination between the players, even if their starting positions d
 of the field, and once outside, the neural network has less opinions about where to run next, so they run together
 to the horizon, much like dogs do.
 
+It would seem the network cares too little about the general position on the field. This is evident from the fact
+that the positions differ somewhat little from each other. Although for all fairness it should be noted that
+in the training data also some players did run out of the field.
+
 Ideas and Notions
 =================
 

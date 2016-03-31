@@ -173,7 +173,8 @@ Ideas and Notions
    do not bring relevant new information.
  * Predicting difference to the last position is more successful than predicting absolute position.
  * Should add a cost function rising sharply for predicting positions outside the field. However, this works better
-   in predicting absolute positions, rather than deltas.
+   in predicting absolute positions, rather than deltas. Perhaps the cost function can just sum the part of the input
+   with the predicted delta to get the predicted new position and use that.
 
 TODO
 ====

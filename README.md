@@ -172,6 +172,8 @@ Ideas and Notions
  * Using only the tracked target plus two others selected randomly, because the peer targets are symmetric and
    do not bring relevant new information.
  * Predicting difference to the last position is more successful than predicting absolute position.
+ * Should add a cost function rising sharply for predicting positions outside the field. However, this works better
+   in predicting absolute positions, rather than deltas.
 
 TODO
 ====

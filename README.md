@@ -159,6 +159,11 @@ It would seem the network cares too little about the general position on the fie
 that the positions differ somewhat little from each other. Although for all fairness it should be noted that
 in the training data also some players did run out of the field.
 
+Disclaimer / Warning
+====================
+
+Do not use these networks for guiding real soccer robots. They will most likely escape and run away.
+
 Ideas and Notions
 =================
 

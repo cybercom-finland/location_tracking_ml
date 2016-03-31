@@ -45,7 +45,8 @@ def RNN(parameters, input, model, initial_state):
 
 # Returns the generative LSTM stack created based on the parameters.
 # Processes one input at a time.
-# Input shape is: (parameters['n_input'])
+# Input shape is: 1 x (parameters['n_input'])
+# State shape is: 1 x (parameters['n_input'])
 def RNN_generative(parameters, input, model, initial_state):
     # The model is:
     # 1. input
@@ -61,7 +62,8 @@ def RNN_generative(parameters, input, model, initial_state):
         input = tf.matmul(input, model['input_weights']) + model['input_bias']
 
     # Note: States is shaped: batch_size x cell.state_size
-    print str(input)
+    # Input should be a tensor of [batch_size, depth]
+    # State should be a tensor of [batch_size, depth]
     outputs, states = model['rnn_cell'](input, initial_state)
     return (tf.tanh(tf.matmul(outputs, model['output_weights']) + model['output_bias']), states)
 
@@ -108,12 +110,12 @@ def create(parameters):
     # cost = tf.reduce_mean(tf.sqrt(tf.nn.l2_loss(pred-y)) # L2 loss for regression
     # Evaluate model. This is the average error.
     # We will take 1 m as the arbitrary goal post to be happy with the error.
-    error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred-y, 2), 1)), 0)
+    error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred[0]-y, 2), 1)), 0)
     cost = error
     optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
     
     model['pred'] = pred
-    model['last_state'] = last_state
+    model['last_state'] = pred[1]
     model['cost'] = cost
     model['optimizer'] = optimizer
     model['error'] = error
@@ -124,8 +126,9 @@ def create_generative(parameters):
     print('Creating the generative neural network model.')
     
     # tf Graph input
-    x = tf.placeholder("float", shape=(parameters['n_input']), name='input')
-    y = tf.placeholder("float", shape=(parameters['n_output']), name='expected_output')
+    # TODO: Technically we could run all the modules in the bank inside one batch here.
+    x = tf.placeholder("float", shape=(1, parameters['n_input']), name='input')
+    y = tf.placeholder("float", shape=(1, parameters['n_output']), name='expected_output')
     lstm_state_size = np.sum(parameters['lstm_layers']) * 2
     # Note: Batch size is the first dimension in istate.
     istate = tf.placeholder("float", shape=(None, lstm_state_size), name='internal_state')
@@ -138,7 +141,7 @@ def create_generative(parameters):
 
     cells = [rnn_cell.LSTMCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn,
                                cell_clip=parameters['lstm_clip'], use_peepholes=True) for i,l in enumerate(parameters['lstm_layers'])] 
-    # TODO: GRUCell cupport here.
+    # TODO: GRUCell support here.
     # cells = [rnn_cell.GRUCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn) for i,l in enumerate(parameters['lstm_layers'])]
     model = {
         'output_weights': tf.Variable(tf.random_normal([parameters['lstm_layers'][-1], parameters['n_output']]),
@@ -149,23 +152,26 @@ def create_generative(parameters):
         'y': y,
         'istate': istate
     }
+    
     if (parameters['input_layer'] <> None):
         model['input_weights'] = tf.Variable(tf.random_normal(
             [input_size, parameters['input_layer']]), name='input_weights')
         model['input_bias'] = tf.Variable(tf.random_normal([parameters['input_layer']]), name='input_bias')
 
-    
-    pred, last_state = RNN_generative(parameters, x, model, istate)
+    # The next variables need to be remapped, because we don't have RNN context anymore:
+    # RNN/MultiRNNCell/Cell0/LSTMCell/ -> MultiRNNCell/Cell0/LSTMCell/
+    # B, W_F_diag, W_O_diag, W_I_diag, W_0
+    with tf.variable_scope("RNN"):
+        pred = RNN_generative(parameters, x, model, istate)
     
     # Define loss and optimizer
     # cost = tf.reduce_mean(tf.sqrt(tf.nn.l2_loss(pred-y)) # L2 loss for regression
     # Evaluate model. This is the average error.
     # We will take 1 m as the arbitrary goal post to be happy with the error.
-    error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred-y, 2), 1)), 0)
+    error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred[0]-y, 2), 1)), 0)
     
     model['pred'] = pred
-    model['last_state'] = last_state
-    model['optimizer'] = optimizer
+    model['last_state'] = pred[1]
     model['error'] = error
-    
+
     return model

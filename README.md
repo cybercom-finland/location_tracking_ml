@@ -26,11 +26,11 @@ The coordinates x and y are limited by the soccer field size (assumption here): 
 
 You can plot the data in Octave using:
 
-`tracks`
+`load('tracks.mat')`
 
 `p = 5;`
 
-`indices = (abs(pos(p,:,1)) <= 53 & abs(pos(p,:,2)) <= 35); scatter(pos(p,indices,1), pos(p,indices,2), 2, p);`
+`indices = (abs(pos(:,p,1)) <= 53 & abs(pos(:,p,2)) <= 35); scatter(pos(indices,p,1), pos(indices,p,2), 2, p);`
 
 Here 5 is the index of the player, and the first command filters out the empty and otherwise invalid values.
 
@@ -81,6 +81,8 @@ The second LSTM layer models the higher level coordination dynamics.
 Trying simple things first, going towards more complex ideas to evaluate improvement. The number and type of layers will
 change as a result of experiments later.
 
+After experiments it seems that one LSTM layer is enough, and somewhat few neurons are needed (at least less than 16).
+
 Coding
 ======
 
@@ -92,20 +94,22 @@ The value signifying missing values is replaced by a special on-off neuron. This
 values is the placeholder value signifying missing data. When the neuron is off, both x and y neurons respectively are
 zeroed.
 
-For one module and 23 players, this makes 23 x (2 x 2 + 1) = 115 input neurons
-for each module, of which 23 are on-off valued, and the rest are continuous valued.
-The input data is the same for each module, but the target to predict is shifted to the first neurons.
+Two peers are chosen randomly to the input.
+For one module, that is 1 target and 2 peers, this makes 3 x (2 x 2 + 1) = 15 input neurons
+for each module, of which 3 are on-off valued, and the rest are continuous valued.
+The input data is the similar for each module, but the target to predict is shifted to the first neurons.
 
 The output neuron coding is identical to the input neuron coding but only has the predicted next x and y position for
 the target tracked by the module.
 
-For these continuous valued outputs L2 loss function is used.
+For these continuous valued outputs a distance loss function is used.
 
 The enabled flag per module can be predicted also, with the loss function chosen accordingly (so that the predicted location
 does not matter if the prediction is disabled, but so that the associated loss for incorrectly predicting the enabled
 flag is high).
 
-In generation mode the output can be fed back to the inputs by calculating the deltas.
+In generation mode the output can be fed back to the inputs by calculating the deltas. Optionally gaussian noise
+can be added to the values before feeding them back to make the traces non-deterministic.
 
 Results
 =======

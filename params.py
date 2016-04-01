@@ -8,10 +8,9 @@ parameters = {
     # None seems to work better.
     'input_layer': None,
     # 6, 3 leads to high variance (difference between training and testing), so at least those are too large.
-    # For single-layer LSTMs seem more stable, [16] works ok, but doesn't learn enough (high bias).
-    # [24] is too high => high variance
-    # [18] also has too much variance.
-    'lstm_layers': [16],
+    # For single-layer LSTMs seem more stable.
+    # [16] also has too much variance.
+    'lstm_layers': [6],
     # How many targets are there
     'n_targets': 23,
     'n_peers': 2,

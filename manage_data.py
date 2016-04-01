@@ -56,7 +56,10 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     Vtrack = data[disp:disp+n_steps,:,:] - data[disp-1:disp+n_steps-1,:,:]
     # We will predict the absolute position because otherwise the delta error will just accumulate
     # in the generation mode, resulting in players running out of the field.
-    Ytrack = data[disp+n_steps,0,:] # - data[disp+n_steps-1,0,:]
+    Ytrack = data[disp+n_steps,0,:]
+    VYtrack = data[disp+n_steps,0,:] - data[disp+n_steps-1,0,:]
+    
+    targetY = np.concatenate((Ytrack, VYtrack), axis=0)
     
     batch_input = np.concatenate((Xtrack, Vtrack), axis=2)
     
@@ -70,7 +73,7 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
         final_batch = np.concatenate((final_batch, selected_peer), axis=1)
         newPeerIndex += 1
     
-    return final_batch, Ytrack
+    return final_batch, targetY
 
 def getNextTrainingBatchSequences(data, step, seqs, n_steps, n_peers):
     resultX = []

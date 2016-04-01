@@ -65,6 +65,8 @@ def RNN_generative(parameters, input, model, initial_state):
     # Input should be a tensor of [batch_size, depth]
     # State should be a tensor of [batch_size, depth]
     outputs, states = model['rnn_cell'](input, initial_state)
+    # TODO: As we are now predicting both the absolute position and the delta, it might make
+    # sense to use tanh for the delta components, but not for the absolute positions components.
     return (tf.matmul(outputs, model['output_weights']) + model['output_bias'], states)
 
 def create(parameters):
@@ -107,10 +109,11 @@ def create(parameters):
     pred = RNN(parameters, x, model, istate)
     
     # Define loss and optimizer
-    # cost = tf.reduce_mean(tf.sqrt(tf.nn.l2_loss(pred-y)) # L2 loss for regression
-    # Evaluate model. This is the average error.
     # We will take 1 m as the arbitrary goal post to be happy with the error.
-    error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred[0]-y, 2), 1)), 0)
+    # The delta error is taken in squared to emphasize its importance (errors are much smaller than in absolute
+    # positions)
+    error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred[0][:,0:2]-y[:,0:2], 2), 1)), 0) + \
+        tf.nn.l2_loss(pred[0][:,2:4]-y[:,2:4])
     cost = error
     optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
     

@@ -1,7 +1,7 @@
 # TODO: Make a run with different parameters and plot results
 parameters = {
     'learning_rate': 0.01,
-    'training_iters': 50000,
+    'training_iters': 10000,
     'display_step': 10,
     'decay': 0.99995,
     # 16 input layer size (against the size 12 input) seems to be too little to capture the necessary features.
@@ -9,8 +9,9 @@ parameters = {
     'input_layer': None,
     # 6, 3 leads to high variance (difference between training and testing), so at least those are too large.
     # For single-layer LSTMs seem more stable.
-    # [16] also has too much variance.
-    'lstm_layers': [6],
+    # [12] also has too much variance.
+    # [6] has too big bias, and doesn't learn well.
+    'lstm_layers': [8],
     # How many targets are there
     'n_targets': 23,
     'n_peers': 2,
@@ -20,7 +21,7 @@ parameters = {
     # The minibatch is 16 sequences of 5 steps.
     'batch_size': 16,
     'n_steps': 5, # timesteps
-    # x, y for 1 target. TODO: Add enabled flag.
-    'n_output': 2,
+    # x, y, dx, dy for 1 target. TODO: Add enabled flag.
+    'n_output': 4,
     'lstm_clip': 10.0
 }

@@ -164,7 +164,7 @@ the tracks are not as clean. Test set error is quite high, i.e. the parameters h
 
 A representative result given below:
 
-![generated_tracks_for_three_players2.png](generated_tracks_for_three_players2.png)
+![generated_tracks_for_three_players_2.png](generated_tracks_for_three_players_2.png)
 
 
 Disclaimer / Warning

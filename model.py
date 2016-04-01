@@ -41,7 +41,10 @@ def RNN(parameters, input, model, initial_state):
     # Note: States is shaped: batch_size x cell.state_size
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
     # Only the last output is interesting for error back propagation and prediction.
-    return (tf.matmul(outputs[-1], model['output_weights']) + model['output_bias'], states)
+    raw_output = tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']
+    # Tanh for the delta components
+    output = tf.concat(1, [raw_output[:,0:2], tf.tanh(raw_output[:,2:4])])
+    return (output, states)
 
 # Returns the generative LSTM stack created based on the parameters.
 # Processes one input at a time.
@@ -55,7 +58,7 @@ def RNN_generative(parameters, input, model, initial_state):
     # n+1. linear layer
     # n+1. output
     
-    # input shape: (n_input)
+    # input shape: (1 x n_input)
     
     # 1. layer, linear activation for each batch and step.
     if (model.has_key('input_weights')):
@@ -65,9 +68,10 @@ def RNN_generative(parameters, input, model, initial_state):
     # Input should be a tensor of [batch_size, depth]
     # State should be a tensor of [batch_size, depth]
     outputs, states = model['rnn_cell'](input, initial_state)
-    # TODO: As we are now predicting both the absolute position and the delta, it might make
-    # sense to use tanh for the delta components, but not for the absolute positions components.
-    return (tf.matmul(outputs, model['output_weights']) + model['output_bias'], states)
+    raw_output = tf.matmul(outputs, model['output_weights']) + model['output_bias']
+    # Tanh for the delta components
+    output = tf.concat(1, [raw_output[:,0:2], tf.tanh(raw_output[:,2:4])])
+    return (output, states)
 
 def create(parameters):
     print('Creating the neural network model.')

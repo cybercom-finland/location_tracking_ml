@@ -190,10 +190,3 @@ Copyright / License
 ===================
 Copyright: Tero Keski-Valkama (2016)
 License: WTFPL, http://www.wtfpl.net/
-
-TODO
-====
-
- * Plot performance with different parameters.
- * Define the goal performance level more exactly.
- * Implement generator.

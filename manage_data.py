@@ -52,11 +52,11 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     # Data shape: (22677, 23, 2)
     Xtrack = np.copy(np.array(data[disp:disp+n_steps,:,:]))
     # Velocity is delta to the previous position.
-    
+
     Vtrack = data[disp:disp+n_steps,:,:] - data[disp-1:disp+n_steps-1,:,:]
-    # We will try to predict delta to the previous positions, because otherwise the "constant" component
-    # dominates the error, and the all important delta is not well learned.
-    Ytrack = data[disp+n_steps,0,:] - data[disp+n_steps-1,0,:]
+    # We will predict the absolute position because otherwise the delta error will just accumulate
+    # in the generation mode, resulting in players running out of the field.
+    Ytrack = data[disp+n_steps,0,:] # - data[disp+n_steps-1,0,:]
     
     batch_input = np.concatenate((Xtrack, Vtrack), axis=2)
     

@@ -159,6 +159,14 @@ It would seem the network cares too little about the general position on the fie
 that the positions differ somewhat little from each other. Although for all fairness it should be noted that
 in the training data also some players did run out of the field.
 
+Running the network in a mode where it predicts the positions rather than deltas leads to a more bounded result, although
+the tracks are not as clean. Test set error is quite high, i.e. the parameters have a high variance. Still needs some tuning.
+
+A representative result given below:
+
+![generated_tracks_for_three_players2.png](generated_tracks_for_three_players2.png)
+
+
 Disclaimer / Warning
 ====================
 
@@ -171,10 +179,13 @@ Ideas and Notions
    such effects, though.
  * Using only the tracked target plus two others selected randomly, because the peer targets are symmetric and
    do not bring relevant new information.
- * Predicting difference to the last position is more successful than predicting absolute position.
- * Should add a cost function rising sharply for predicting positions outside the field. However, this works better
-   in predicting absolute positions, rather than deltas. Perhaps the cost function can just sum the part of the input
-   with the predicted delta to get the predicted new position and use that.
+ * Predicting difference to the last position is more accurate than predicting absolute position, but
+   it leads to the predicted position error accumulation so that the player drifts out of the field.
+
+Copyright / License
+===================
+Copyright: Tero Keski-Valkama (2016)
+License: WTFPL, http://www.wtfpl.net/
 
 TODO
 ====

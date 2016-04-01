@@ -41,7 +41,7 @@ def RNN(parameters, input, model, initial_state):
     # Note: States is shaped: batch_size x cell.state_size
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
     # Only the last output is interesting for error back propagation and prediction.
-    return (tf.tanh(tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']), states)
+    return (tf.matmul(outputs[-1], model['output_weights']) + model['output_bias'], states)
 
 # Returns the generative LSTM stack created based on the parameters.
 # Processes one input at a time.
@@ -65,7 +65,7 @@ def RNN_generative(parameters, input, model, initial_state):
     # Input should be a tensor of [batch_size, depth]
     # State should be a tensor of [batch_size, depth]
     outputs, states = model['rnn_cell'](input, initial_state)
-    return (tf.tanh(tf.matmul(outputs, model['output_weights']) + model['output_bias']), states)
+    return (tf.matmul(outputs, model['output_weights']) + model['output_bias'], states)
 
 def create(parameters):
     print('Creating the neural network model.')

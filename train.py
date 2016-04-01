@@ -128,17 +128,13 @@ def train(parameters, model, trainData, testingData):
                     pylab.clf()
                     pylab.plot(test_xp[predictedBatch,:,0,0], test_xp[predictedBatch,:,0,1],
                              [test_xp[predictedBatch,parameters['n_steps']-1,0,0],
-                              test_xp[predictedBatch,parameters['n_steps']-1,0,0] +
-                                  prediction[predictedBatch,0]],
+                              prediction[predictedBatch,0]],
                              [test_xp[predictedBatch,parameters['n_steps']-1,0,1],
-                              test_xp[predictedBatch,parameters['n_steps']-1,0,1] +
-                                  prediction[predictedBatch,1]],
+                              prediction[predictedBatch,1]],
                              [test_xp[predictedBatch,parameters['n_steps']-1,0,0],
-                              test_xp[predictedBatch,parameters['n_steps']-1,0,0] +
-                                  test_yp[predictedBatch,0]],
+                              test_yp[predictedBatch,0]],
                              [test_xp[predictedBatch,parameters['n_steps']-1,0,1],
-                              test_xp[predictedBatch,parameters['n_steps']-1,0,1] +
-                                  test_yp[predictedBatch,1]]);
+                              test_yp[predictedBatch,1]]);
                     pylab.savefig('prediction' + str(iter) + '.png')
 
                 iter += 1

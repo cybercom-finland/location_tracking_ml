@@ -18,6 +18,10 @@ Dataset
 The dataset used is player location data from a soccer game.
 The source for the dataset is https://datahub.io/dataset/magglingen2013, the game TR vs. FT.
 
+The player 0 is the ball.
+
+The first few moments of the game visualized: [https://youtu.be/TykeaEGmYI0](https://youtu.be/TykeaEGmYI0)
+
 Run `./getData.sh` to get the dataset.
 
 Run `./process.py` to parse the dataset and convert it into Octave format for inspection.

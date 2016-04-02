@@ -214,6 +214,11 @@ Ideas and Notions
  * Predicting difference to the last position is more accurate than predicting absolute position, but
    it leads to the predicted position error accumulation so that the player drifts out of the field.
 
+Open Issues
+===========
+
+For some reason the iterations get progressively slower, even if the model is not added new elements.
+
 Copyright / License
 ===================
 Copyright: Tero Keski-Valkama (2016)

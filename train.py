@@ -29,8 +29,7 @@ def train(parameters, model, trainData, testingData):
         trainErrorTrend = []
         testErrorTrend = []
         
-        # Note: 0 is the ball, and not used for training.
-        for targetInd in range(1, 24):
+        for targetInd in range(0, 22):
             print('Creating input data for the target: ' + str(targetInd))
             # Choosing the target to track
             trainingData = manage_data.makeInputForTargetInd(trainData, targetInd)
@@ -53,10 +52,10 @@ def train(parameters, model, trainData, testingData):
                     model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                              tf.float32).eval())})
                 if step % parameters['display_step'] == 0:
-                    testData = manage_data.makeInputForTargetInd(testingData, np.random.randint(1,23))
+                    testData = manage_data.makeInputForTargetInd(testingData, np.random.randint(0,22))
                     test_len = parameters['batch_size']
                     
-                    testTarget = random.randint(0,23-1)
+                    testTarget = random.randint(0,22)
                     predictedBatch = random.randint(0,test_len-1)
                     
                     saver.save(sess, 'soccer-model', global_step=iter)

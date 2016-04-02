@@ -25,13 +25,14 @@ def divide(positionTracks):
     
     print('Dividing into training, test and validation sets.')
     
-    input = map(lambda l: list(l.itervalues()), positionTracks)
+    input = np.asarray(map(lambda l: list(l.itervalues()), positionTracks))
     third = len(input)/3
-    train = input[0:third]
-    test = input[third:third*2]
-    validation = input[third*2:len(input)]
+    # Leaving out the ball (player 0)
+    train = input[0:third,1:23]
+    test = input[third:third*2,1:23]
+    validation = input[third*2:len(input),1:23]
 
-    # Each of the sets have 22677 positions (x,y) for 23 players.
+    # Each of the sets have 22677 positions (x,y) for 22 players (plus ball).
     # We'll divide these into minibatches of size 20, getting 1133 full minibatches.
     return train, test, validation
 
@@ -49,7 +50,7 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     
     # A random displacement to take the batch from.
     disp = random.randint(1, len(data[:]) - n_steps - 1)
-    # Data shape: (22677, 23, 2)
+    # Data shape: (22677, 22, 2)
     Xtrack = np.copy(np.array(data[disp:disp+n_steps,:,:]))
     # Velocity is delta to the previous position.
 
@@ -67,7 +68,7 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     newPeerIndex = 1
     # All time indices for the target to track.
     final_batch = np.copy(batch_input[:,0:newPeerIndex,:])
-    for peer in random.sample(range(1,23), n_peers):
+    for peer in random.sample(range(1,22), n_peers):
         # Taking the beginning and concatenating the data of the next selected peer in the input dimension.
         selected_peer = np.copy(batch_input[:,peer:peer+1,:])
         final_batch = np.concatenate((final_batch, selected_peer), axis=1)

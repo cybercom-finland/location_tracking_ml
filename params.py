@@ -1,8 +1,8 @@
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.02,
-    'training_iters': 10000,
-    'display_step': 10,
+    'learning_rate': 0.03,
+    'training_iters': 100000,
+    'display_step': 50,
     'decay': 1.0, #0.99995,
     # 16 input layer size (against the size 12 input) seems to be too little to capture the necessary features.
     # None seems to work better.
@@ -13,7 +13,7 @@ parameters = {
     # [6] has too big bias, and doesn't learn well.
     'lstm_layers': [7],
     # How many targets are there
-    'n_targets': 23,
+    'n_targets': 22,
     'n_peers': 2,
     # x, y for 3 targets
     # TODO: Add enabled flag

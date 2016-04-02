@@ -182,7 +182,8 @@ a bit also):
 
 The system overfits somewhat, but generates nice traces. The system seems to have an attractor at a specific
 point, because all the players eventually run there and stop. This is not very surprising, as dynamic, deterministic
-systems do that often. Adding random noise might generate more interesting traces.
+systems do that often. Even adding a moderate amount of noise leads to the same general pattern, so we see it is about
+overfitting. Parameters need to be tuned more.
 
 ![generated_tracks_for_three_players_3.png](generated_tracks_for_three_players_3.png)
 

@@ -63,8 +63,18 @@ with tf.Session() as sess:
                                              generative_model['istate']: bank[mod]})
             traces[mod].append(prediction)
             # The predictions are positions and deltas.
-            next_pos.append(prediction[0:2])
-            next_delta.append(prediction[2:4])
+            # They will have a difference, which will be used as random noise to the absolute location.
+            # The standard deviation of the noise will be at least 0.05.
+            # As the network estimates both the delta and the absolute position, we can see the difference
+            # and use that metric of uncertainty as a basis for the noise.
+            sigma_x = 0.2
+            sigma_y = 0.2
+            error_x = np.random.normal(0, sigma_x)
+            error_y = np.random.normal(0, sigma_y)
+            error_xv = np.random.normal(0, sigma_x)
+            error_yv = np.random.normal(0, sigma_y)
+            next_pos.append(prediction[0,0:2] + [error_x, error_y])
+            next_delta.append(prediction[0,2:4] + [error_xv, error_yv])
         pos = np.asarray(next_pos)
         delta = np.asarray(next_delta)
         export_to_octave.save('traces.mat', 'traces', np.asarray(traces))

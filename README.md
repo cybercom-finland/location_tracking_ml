@@ -170,6 +170,23 @@ A representative result given below:
 
 ![generated_tracks_for_three_players_2.png](generated_tracks_for_three_players_2.png)
 
+Next, we will try predicting both the delta and the absolute position with the network.
+With 2-layer LSTM network with somewhat tuned parameters, and a longer generation time (varied around the starting positions
+a bit also):
+
+`{'n_input': 12, 'learning_rate': 0.01, 'batch_size': 16, 'training_iters': 10000, 'lstm_layers': [6, 4], 'n_steps': 5, 'n_output': 4, 'decay': 0.99995, 'input_layer': None, 'display_step': 10, 'n_targets': 23, 'n_peers': 2, 'lstm_clip': 10.0}`
+
+`delta = np.asarray([[0.15, 0.0], [0.0, -0.1], [-0.1, 0.1]])`
+
+`pos = np.asarray([[0.0, 0.0], [0.1, 1.3], [10.1, -1.3]])`
+
+The system overfits somewhat, but generates nice traces. The system seems to have an attractor at a specific
+point, because all the players eventually run there and stop.
+
+![generated_tracks_for_three_players_3.png](generated_tracks_for_three_players_3.png)
+
+![generated_tracks_for_three_players_3_zoomed.png](generated_tracks_for_three_players_3_zoomed.png)
+
 
 Disclaimer / Warning
 ====================

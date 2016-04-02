@@ -11,7 +11,7 @@ parameters = {
     # For single-layer LSTMs seem more stable.
     # [12] also has too much variance.
     # [6] has too big bias, and doesn't learn well.
-    'lstm_layers': [8],
+    'lstm_layers': [6,4],
     # How many targets are there
     'n_targets': 23,
     'n_peers': 2,

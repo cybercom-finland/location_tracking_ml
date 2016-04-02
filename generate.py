@@ -32,7 +32,7 @@ saver = tf.train.Saver()
 
 # Arbitrary starting positions.
 delta = np.asarray([[0.15, 0.0], [0.0, -0.1], [-0.1, 0.1]])
-pos = np.asarray([[0.0, 0.0], [0.1, 1.3], [-0.1, -1.3]])
+pos = np.asarray([[0.0, 0.0], [0.1, 1.3], [10.1, -1.3]])
 
 # For outputting to plot and Octave
 traces = [[],[],[]]
@@ -49,7 +49,7 @@ with tf.Session() as sess:
             np.asarray(generative_model['rnn_cell'].zero_state(1, tf.float32).eval())]
     
     # 5 minutes
-    for time in range(3000):
+    for time in range(30000):
         next_pos = []
         next_delta = []
         for mod in range(3):
@@ -62,9 +62,9 @@ with tf.Session() as sess:
                                              generative_model['x']: np.reshape(input, (1, 12)),
                                              generative_model['istate']: bank[mod]})
             traces[mod].append(prediction)
-            # The predictions are deltas.
-            next_pos.append(prediction)
-            next_delta.append(prediction - posForTarget[0,:])
+            # The predictions are positions and deltas.
+            next_pos.append(prediction[0:2])
+            next_delta.append(prediction[2:4])
         pos = np.asarray(next_pos)
         delta = np.asarray(next_delta)
         export_to_octave.save('traces.mat', 'traces', np.asarray(traces))

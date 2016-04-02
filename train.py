@@ -17,10 +17,13 @@ import export_to_octave
 
 def train(parameters, model, trainData, testingData):
     print('Launching training.')
+    accuracy_summary = tf.scalar_summary("error", model["error"])
+    merged = tf.merge_all_summaries()
     init = tf.initialize_all_variables()
     saver = tf.train.Saver(tf.all_variables())
     # Launch the graph
     with tf.Session() as sess:
+        writer = tf.train.SummaryWriter("logs", sess.graph_def)
         sess.run(init)
         # Keep training until reach max iterations for each target in the material
     
@@ -52,6 +55,7 @@ def train(parameters, model, trainData, testingData):
                     model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                              tf.float32).eval())})
                 if step % parameters['display_step'] == 0:
+                    
                     testData = manage_data.makeInputForTargetInd(testingData, np.random.randint(0,22))
                     test_len = parameters['batch_size']
                     
@@ -113,14 +117,15 @@ def train(parameters, model, trainData, testingData):
                     test_y = test_yp.reshape((test_len, parameters['n_output']))
                     #export_to_octave.save('test_xp.mat', 'test_xp', test_x)
                     #export_to_octave.save('test_yp.mat', 'test_yp', test_y)
-                    testError = sess.run(model['error'], feed_dict={model['x']: test_x,
+                    (summary_str, testError) = sess.run([merged, model['error']], feed_dict={model['x']: test_x,
                         model['y']: test_y,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                          tf.float32).eval())})
+                    writer.add_summary(summary_str, iter)
                     testErrorTrend.append(testError)
                     print "Testing Error:", testError
-                    #export_to_octave.save('train_error.mat', 'train_error', trainErrorTrend)
-                    #export_to_octave.save('test_error.mat', 'test_error', testErrorTrend)
+                    export_to_octave.save('train_error.mat', 'train_error', trainErrorTrend)
+                    export_to_octave.save('test_error.mat', 'test_error', testErrorTrend)
                     prediction, state = sess.run(model['pred'], feed_dict={model['x']: test_x,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                  tf.float32).eval())})

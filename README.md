@@ -218,6 +218,7 @@ Open Issues
 ===========
 
 For some reason the iterations get progressively slower, even if the model is not added new elements.
+At iteration 467072 (batch size 32, so the loop counter is 14596) the display step takes about ten times as long as in the beginning.
 
 The work is CPU bound for some reason, will have to optimize something. Probably some tensorflow operations
 there that do not have GPU implementations yet.

@@ -49,7 +49,7 @@ with tf.Session() as sess:
             np.asarray(generative_model['rnn_cell'].zero_state(1, tf.float32).eval())]
     
     # 5 minutes
-    for time in range(30000):
+    for time in range(600*5):
         next_pos = []
         next_delta = []
         for mod in range(3):

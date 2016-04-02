@@ -188,6 +188,7 @@ systems do that often. Adding random noise might generate more interesting trace
 
 ![generated_tracks_for_three_players_3_zoomed.png](generated_tracks_for_three_players_3_zoomed.png)
 
+Same as a video (shortened a bit, because the end does not change): [https://youtu.be/lmNsdmsUtwI](https://youtu.be/lmNsdmsUtwI)
 
 Disclaimer / Warning
 ====================

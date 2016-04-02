@@ -121,7 +121,7 @@ def create(parameters):
     cost = error
     optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
     
-    model['pred'] = pred
+    model['pred'] = pred[0]
     model['last_state'] = pred[1]
     model['cost'] = cost
     model['optimizer'] = optimizer

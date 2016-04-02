@@ -41,7 +41,7 @@ def train(parameters, model, trainData, testingData):
             print('Training target: ' + str(targetInd))
             step = 1
             while step * parameters['batch_size'] < parameters['training_iters']:
-                parameters['learning_rate'] = parameters['learning_rate'] * parameters['decay'];
+                parameters['learning_rate'] = parameters['learning_rate'] * parameters['decay']
                 tf.assign(model['lr'], parameters['learning_rate'])
                 (batch_xsp, batch_ysp) = manage_data.getNextTrainingBatchSequences(trainingData, step - 1,
                     parameters['batch_size'], parameters['n_steps'], parameters['n_peers'])
@@ -69,17 +69,14 @@ def train(parameters, model, trainData, testingData):
                     #export_to_octave.save('batch_ys.mat', 'batch_ys', batch_ys)
                     
                     # Calculate batch error as mean distance
-                    error = sess.run(model['error'], feed_dict={model['x']: batch_xs, model['y']: batch_ys,
+                    [error, prediction, loss] = sess.run([model['error'], model['pred'], model['cost']],
+                        feed_dict={model['x']: batch_xs, model['y']: batch_ys,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                  tf.float32).eval())})
-                    
                     trainErrorTrend.append(error)
 
                     print "Test target: " + str(testTarget)
                     print "Batch: " + str(predictedBatch)
-                    prediction, state = sess.run(model['pred'], feed_dict={model['x']: batch_xs,
-                        model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
-                                                                                 tf.float32).eval())})
                     if (False):
                         pylab.clf()
                         pylab.plot(batch_xsp[predictedBatch,:,0,0], batch_xsp[predictedBatch,:,0,1],
@@ -98,9 +95,6 @@ def train(parameters, model, trainData, testingData):
                         pylab.savefig('prediction_train_' + str(iter) + '.png')
                     
                     # Calculate batch loss
-                    loss = sess.run(model['cost'], feed_dict={model['x']: batch_xs, model['y']: batch_ys,
-                        model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
-                                                                                 tf.float32).eval())})
                     #export_to_octave.save('prediction.mat', 'prediction', prediction)
                     print "Prediction: " + str(prediction)
                     print "Reality: " + str(batch_ys)
@@ -117,7 +111,8 @@ def train(parameters, model, trainData, testingData):
                     test_y = test_yp.reshape((test_len, parameters['n_output']))
                     #export_to_octave.save('test_xp.mat', 'test_xp', test_x)
                     #export_to_octave.save('test_yp.mat', 'test_yp', test_y)
-                    (summary_str, testError) = sess.run([merged, model['error']], feed_dict={model['x']: test_x,
+                    [summary_str, testError, prediction] = sess.run([merged, model['error'], model['pred']],
+                        feed_dict={model['x']: test_x,
                         model['y']: test_y,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                          tf.float32).eval())})
@@ -126,9 +121,6 @@ def train(parameters, model, trainData, testingData):
                     print "Testing Error:", testError
                     export_to_octave.save('train_error.mat', 'train_error', trainErrorTrend)
                     export_to_octave.save('test_error.mat', 'test_error', testErrorTrend)
-                    prediction, state = sess.run(model['pred'], feed_dict={model['x']: test_x,
-                        model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
-                                                                                 tf.float32).eval())})
                     #export_to_octave.save('test_prediction.mat', 'test_prediction', prediction)
                     if (False):
                         pylab.clf()

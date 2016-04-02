@@ -181,7 +181,8 @@ a bit also):
 `pos = np.asarray([[0.0, 0.0], [0.1, 1.3], [10.1, -1.3]])`
 
 The system overfits somewhat, but generates nice traces. The system seems to have an attractor at a specific
-point, because all the players eventually run there and stop.
+point, because all the players eventually run there and stop. This is not very surprising, as dynamic, deterministic
+systems do that often. Adding random noise might generate more interesting traces.
 
 ![generated_tracks_for_three_players_3.png](generated_tracks_for_three_players_3.png)
 

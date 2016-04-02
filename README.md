@@ -219,6 +219,9 @@ Open Issues
 
 For some reason the iterations get progressively slower, even if the model is not added new elements.
 
+The work is CPU bound for some reason, will have to optimize something. Probably some tensorflow operations
+there that do not have GPU implementations yet.
+
 Copyright / License
 ===================
 Copyright: Tero Keski-Valkama (2016)

@@ -87,6 +87,10 @@ change as a result of experiments later.
 
 After experiments it seems that one LSTM layer is enough, and somewhat few neurons are needed (at least less than 16).
 
+Output of TensorBoard of the network model is as follows:
+
+![model_tensorboard.png](model_tensorboard.png)
+
 Coding
 ======
 

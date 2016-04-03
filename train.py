@@ -38,7 +38,6 @@ def train(parameters, model, trainData, testingData):
             trainingData = manage_data.makeInputForTargetInd(trainData, targetInd)
             #export_to_octave.save('training_data_d.mat', 'trainingData', trainingData)
             
-            print('Training target: ' + str(targetInd))
             step = 1
             while step * parameters['batch_size'] < parameters['training_iters']:
                 parameters['learning_rate'] = parameters['learning_rate'] * parameters['decay']

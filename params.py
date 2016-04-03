@@ -1,8 +1,9 @@
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.03,
+    'learning_rate': 0.01,
     'training_iters': 100000,
-    'display_step': 50,
+    'display_step': int(100000 / 128 / 100) + 1,
+    # Should not put too many display steps here, because accumulation of data takes memory. Doing ~100 print outs.
     'decay': 1.0, #0.99995,
     # 16 input layer size (against the size 12 input) seems to be too little to capture the necessary features.
     # None seems to work better.
@@ -18,8 +19,8 @@ parameters = {
     # x, y for 3 targets
     # TODO: Add enabled flag
     'n_input': 3*4,
-    # The minibatch is 32 sequences of 5 steps.
-    'batch_size': 32,
+    # The minibatch is 128 sequences of 5 steps.
+    'batch_size': 128,
     'n_steps': 5, # timesteps
     # x, y, dx, dy for 1 target. TODO: Add enabled flag.
     'n_output': 4,

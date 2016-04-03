@@ -155,6 +155,7 @@ some noise to the sequence, to generate varying traces. This is mathematically v
 of the LSTM to represent the expected value of some distribution. Other distribution parameters could be estimated
 by testing the system against the test set data.
 
+The first generation was run for predictions of position deltas, instead of absolute positions.
 The results for the first test generation, for the model learned in one pretty successful run:
 
 ![generated_tracks_for_three_players.png](generated_tracks_for_three_players.png)

@@ -136,5 +136,6 @@ def train(parameters, model, trainData, testingData):
 
                 iter += 1
                 step += 1
+        saver.save(sess, 'soccer-model', global_step=iter)
         print "Optimization Finished!"
         # Calculate accuracy for the test data

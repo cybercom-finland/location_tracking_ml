@@ -116,8 +116,10 @@ The enabled flag per module can be predicted also, with the loss function chosen
 does not matter if the prediction is disabled, but so that the associated loss for incorrectly predicting the enabled
 flag is high).
 
-In generation mode the output can be fed back to the inputs by calculating the deltas. Optionally gaussian noise
-can be added to the values before feeding them back to make the traces non-deterministic.
+In generation mode the output can be fed back to the inputs by calculating the deltas.
+
+Traditionally Mixture Density Networks have been used with LSTMs and real-valued outputs. These would probably produce
+somewhat better output, but for testing purposes trivial output coding works ok.
 
 Results
 =======
@@ -214,11 +216,7 @@ Ideas and Notions
    do not bring relevant new information.
  * Predicting difference to the last position is more accurate than predicting absolute position, but
    it leads to the predicted position error accumulation so that the player drifts out of the field.
-
-Open Issues
-===========
-
-Everything fixed.
+ * Output coding by Mixture Density Networks would be something to try.
 
 Copyright / License
 ===================

@@ -1,6 +1,6 @@
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.1,
+    'learning_rate': 0.2,
     'training_iters': 1000000,
     'display_step': int(100000 / 128 / 100) + 1,
     # Should not put too many display steps here, because accumulation of data takes memory. Doing ~100 print outs.
@@ -8,11 +8,7 @@ parameters = {
     # 16 input layer size (against the size 12 input) seems to be too little to capture the necessary features.
     # None seems to work better.
     'input_layer': None,
-    # 6, 3 leads to high variance (difference between training and testing), so at least those are too large.
-    # For single-layer LSTMs seem more stable.
-    # [12] also has too much variance.
-    # [6] has too big bias, and doesn't learn well.
-    'lstm_layers': [7],
+    'lstm_layers': [7, 4],
     # How many targets are there
     'n_targets': 22,
     'n_peers': 2,

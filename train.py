@@ -94,8 +94,11 @@ def train(parameters, model, trainData, testingData):
                         pylab.savefig('prediction_train_' + str(iter) + '.png')
                     
                     # Calculate batch loss
+                    n_mixtures = parameters['n_mixtures']
                     #export_to_octave.save('prediction.mat', 'prediction', prediction)
-                    print "Prediction: " + str(prediction)
+                    # Printing out mus.
+                    print "Weights: " + str(prediction[:, 0:n_mixtures])
+                    print "Prediction: " + str(prediction[:, n_mixtures * 3 : n_mixtures * 5])
                     print "Reality: " + str(batch_ys)
                     print "Iter " + str(iter * parameters['batch_size']) + ", Minibatch Loss= " + \
                         "{:.6f}".format(loss) + \

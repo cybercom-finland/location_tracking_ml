@@ -12,12 +12,14 @@ import random
 import json
 import itertools
 
+epsilon = 0.000001
+
 # The input shape is [batch_size, n_mixtures * 6]
 def splitMix(output, n_mixtures, batch_size):
-    out_pi = output[:, 0:n_mixtures]
-    out_sigma = tf.reshape(output[:, n_mixtures: n_mixtures + n_mixtures * 2], [batch_size, n_mixtures, 2])
-    out_mu = tf.reshape(output[:, n_mixtures + n_mixtures * 2 : n_mixtures + n_mixtures * 4], [batch_size, n_mixtures, 2])
-    out_rho = output[:, n_mixtures + n_mixtures * 4 : n_mixtures + n_mixtures * 5]
+    out_pi = output[0:batch_size, 0:n_mixtures]
+    out_sigma = tf.reshape(output[0:batch_size, n_mixtures: n_mixtures * 3], [batch_size, n_mixtures, 2])
+    out_mu = tf.reshape(output[0:batch_size, n_mixtures * 3 : n_mixtures * 5], [batch_size, n_mixtures, 2])
+    out_rho = output[0:batch_size, n_mixtures * 5 : n_mixtures * 6]
     return out_pi, out_sigma, out_mu, out_rho
 
 # The result shape is [batch_size, n_mixtures * 6]
@@ -43,13 +45,13 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     normalize_pi = tf.inv(tf.reduce_sum(out_pi, 1, keep_dims=True))
     out_pi = tf.mul(normalize_pi, out_pi)
     # Always [-1, 1]
-    #out_rho = tf.tanh(out_rho)
-    out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
+    out_rho = tf.tanh(out_rho)
+    #out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
-    # Making sigma always positive, and larger than 0.1.
-    out_sigma = tf.exp(out_sigma) + 0.1
+    # Making sigma always positive, and larger than 0.02.
+    out_sigma = tf.exp(out_sigma) + 0.02
 
-    if False:
+    if True:
         out_sigma = tf.Print(out_sigma, [out_sigma], message="out_sigma: ")
         out_pi = tf.Print(out_pi, [out_pi], message="out_pi: ")
         out_mu = tf.Print(out_mu, [out_mu], message="out_mu: ")
@@ -60,19 +62,21 @@ def softmax_mixtures(output, n_mixtures, batch_size):
 # mu is x,y pairs of mus for each mixture gaussian, and for each batch.
 # sigma is x,y pairs of sigmas for each mixture gaussian, and for each batch.
 # The first dimension is batch, then mixture, then variable.
-# Rho is the correlation of x and y for each batch.
+# Rho is the correlation of x and y for each batch and mixture.
 # The first dimension is batch, then mixture.
-def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures):
+def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     delta = tf.sub(tf.tile(tf.expand_dims(y, 1), [1, n_mixtures, 1]), mu)
-    s = tf.reduce_prod(sigma, 2)
+    sigma = sigma + epsilon
+    s = tf.abs(tf.reduce_prod(sigma, 2))
     z = tf.reduce_sum(tf.square(tf.div(delta, sigma)), 2) - \
         2 * tf.div(tf.mul(rho, tf.reduce_prod(delta, 2)), s)
     negRho = 1 - tf.square(rho)
+    #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
     # Note that if probability density goes to approximately zero the optimizer runs into trouble.
-    result = tf.exp(tf.div(-z, 2 * negRho)) + 0.000001
+    result = tf.exp(tf.div(-z, 2 * negRho))
     denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
-    result = tf.div(result, denom)
-    if False:
+    result = tf.div(result, denom) + epsilon
+    if True:
         y = tf.Print(y, [y], message="y: ")
         mu = tf.Print(mu, [mu], message="mu: ")
         sigma = tf.Print(sigma, [sigma], message="sigma: ")
@@ -87,11 +91,11 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures):
 
 def mixture_loss(pred, y, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(pred, n_mixtures, batch_size)
-    result = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures)
+    result = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
     
     result = tf.mul(result, out_pi)
     result = tf.reduce_sum(result, 1, keep_dims=True)
-    result = -tf.log(result)
+    result = -tf.log(result + epsilon)
     result = tf.reduce_mean(result)
     return result
 
@@ -125,6 +129,9 @@ def RNN(parameters, input, model, initial_state):
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
     # Only the last output is interesting for error back propagation and prediction.
     # Note that all batches are handled together here.
+    if True:
+        model['output_weights'] = tf.Print(model['output_weights'], [model['output_weights']], message="output weights: ")
+        model['output_bias'] = tf.Print(model['output_bias'], [model['output_bias']], message="output bias: ")
     raw_output = tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']
     
     n_mixtures = parameters['n_mixtures']
@@ -191,7 +198,7 @@ def create(parameters):
                                                         parameters['n_mixtures'] * 6]),
                                       name='output_weights'),
         # We need to put at least the standard deviation output biases to about 5 to prevent zeros and infinities.
-        'output_bias': tf.Variable(tf.random_normal([parameters['n_mixtures'] * 6], mean = 5.0),
+        'output_bias': tf.Variable(tf.random_normal([parameters['n_mixtures'] * 6], mean = 5.0, stddev = 3.0),
                                    name='output_bias'),
         'rnn_cell': rnn_cell.MultiRNNCell(cells),
         'lr': lr,
@@ -213,7 +220,6 @@ def create(parameters):
     # positions)
     n_mixtures = parameters['n_mixtures']
     batch_size = parameters['batch_size']
-    print pred[0]
     cost = mixture_loss(pred[0], y, n_mixtures, batch_size)
     optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
     

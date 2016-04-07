@@ -67,8 +67,8 @@ with tf.Session() as sess:
             # The standard deviation of the noise will be at least 0.05.
             # As the network estimates both the delta and the absolute position, we can see the difference
             # and use that metric of uncertainty as a basis for the noise.
-            sigma_x = 0.2
-            sigma_y = 0.2
+            sigma_x = 0.001
+            sigma_y = 0.001
             error_x = np.random.normal(0, sigma_x)
             error_y = np.random.normal(0, sigma_y)
             error_xv = np.random.normal(0, sigma_x)

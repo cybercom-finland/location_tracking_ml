@@ -12,6 +12,89 @@ import random
 import json
 import itertools
 
+# The input shape is [batch_size, n_mixtures * 6]
+def splitMix(output, n_mixtures, batch_size):
+    out_pi = output[:, 0:n_mixtures]
+    out_sigma = tf.reshape(output[:, n_mixtures: n_mixtures + n_mixtures * 2], [batch_size, n_mixtures, 2])
+    out_mu = tf.reshape(output[:, n_mixtures + n_mixtures * 2 : n_mixtures + n_mixtures * 4], [batch_size, n_mixtures, 2])
+    out_rho = output[:, n_mixtures + n_mixtures * 4 : n_mixtures + n_mixtures * 5]
+    return out_pi, out_sigma, out_mu, out_rho
+
+# The result shape is [batch_size, n_mixtures * 6]
+def joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size):
+    return tf.concat(1, [out_pi, tf.reshape(out_sigma, [batch_size, n_mixtures * 2]), \
+                      tf.reshape(out_mu, [batch_size, n_mixtures * 2]), out_rho])
+
+# Returns the softmaxed mixture coefficients (weight, 2xstandard deviation, 2xmean and correlation)
+# The output must be a tensor of batches, so that each batch has
+# weight, deviation and mean triplets for one target variable.
+# output shape is [batch_size, n_mixtures]
+# Note: For one 2D variable only.
+def softmax_mixtures(output, n_mixtures, batch_size):
+    out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
+
+    # Softmaxing the weights so that they sum up to one.
+    max_pi = tf.reduce_max(out_pi, 1, keep_dims=True)
+    out_pi = tf.sub(out_pi, max_pi)
+
+    # out_pi must never be zero.
+    out_pi = tf.exp(out_pi)
+
+    normalize_pi = tf.inv(tf.reduce_sum(out_pi, 1, keep_dims=True))
+    out_pi = tf.mul(normalize_pi, out_pi)
+    # Always [-1, 1]
+    #out_rho = tf.tanh(out_rho)
+    out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
+
+    # Making sigma always positive, and larger than 0.1.
+    out_sigma = tf.exp(out_sigma) + 0.1
+
+    if False:
+        out_sigma = tf.Print(out_sigma, [out_sigma], message="out_sigma: ")
+        out_pi = tf.Print(out_pi, [out_pi], message="out_pi: ")
+        out_mu = tf.Print(out_mu, [out_mu], message="out_mu: ")
+        out_rho = tf.Print(out_rho, [out_rho], message="out_rho: ")
+    return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
+
+# Returns the probability density for bivariate gaussians.
+# mu is x,y pairs of mus for each mixture gaussian, and for each batch.
+# sigma is x,y pairs of sigmas for each mixture gaussian, and for each batch.
+# The first dimension is batch, then mixture, then variable.
+# Rho is the correlation of x and y for each batch.
+# The first dimension is batch, then mixture.
+def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures):
+    delta = tf.sub(tf.tile(tf.expand_dims(y, 1), [1, n_mixtures, 1]), mu)
+    s = tf.reduce_prod(sigma, 2)
+    z = tf.reduce_sum(tf.square(tf.div(delta, sigma)), 2) - \
+        2 * tf.div(tf.mul(rho, tf.reduce_prod(delta, 2)), s)
+    negRho = 1 - tf.square(rho)
+    # Note that if probability density goes to approximately zero the optimizer runs into trouble.
+    result = tf.exp(tf.div(-z, 2 * negRho)) + 0.000001
+    denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
+    result = tf.div(result, denom)
+    if False:
+        y = tf.Print(y, [y], message="y: ")
+        mu = tf.Print(mu, [mu], message="mu: ")
+        sigma = tf.Print(sigma, [sigma], message="sigma: ")
+        rho = tf.Print(rho, [rho], message="rho: ")
+        delta = tf.Print(delta, [delta], message="delta: ")
+        s = tf.Print(s, [s], message="s: ")
+        z = tf.Print(z, [z], message="z: ")
+        negRho = tf.Print(negRho, [negRho], message="negRho: ")
+        denom = tf.Print(denom, [denom], message="denom: ")
+        result = tf.Print(result, [result], message="result: ")
+    return result
+
+def mixture_loss(pred, y, n_mixtures, batch_size):
+    out_pi, out_sigma, out_mu, out_rho = splitMix(pred, n_mixtures, batch_size)
+    result = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures)
+    
+    result = tf.mul(result, out_pi)
+    result = tf.reduce_sum(result, 1, keep_dims=True)
+    result = -tf.log(result)
+    result = tf.reduce_mean(result)
+    return result
+
 # Returns the LSTM stack created based on the parameters.
 # Processes several batches at once.
 # Input shape is: (parameters['batch_size'], parameters['n_steps'], parameters['n_input'])
@@ -41,9 +124,16 @@ def RNN(parameters, input, model, initial_state):
     # Note: States is shaped: batch_size x cell.state_size
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
     # Only the last output is interesting for error back propagation and prediction.
+    # Note that all batches are handled together here.
     raw_output = tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']
-    # Tanh for the delta components
-    output = tf.concat(1, [raw_output[:,0:2], tf.tanh(raw_output[:,2:4])])
+    
+    n_mixtures = parameters['n_mixtures']
+    batch_size = parameters['batch_size']
+    # And now, instead of just outputting the expected value, we output mixture distributions.
+    # The number of mixtures is intuitively the number of possible actions the target can take.
+    # The output is divided into triplets of n_mixtures mixture parameters for the 2 absolute position coordinates.
+    output = softmax_mixtures(raw_output, n_mixtures, batch_size)
+
     return (output, states)
 
 # Returns the generative LSTM stack created based on the parameters.
@@ -69,8 +159,9 @@ def RNN_generative(parameters, input, model, initial_state):
     # State should be a tensor of [batch_size, depth]
     outputs, states = model['rnn_cell'](input, initial_state)
     raw_output = tf.matmul(outputs, model['output_weights']) + model['output_bias']
+    # TODO: Sample distribution here: First select the mixture based on weights, then sample normal.
     # Tanh for the delta components
-    output = tf.concat(1, [raw_output[:,0:2], tf.tanh(raw_output[:,2:4])])
+    #output = tf.concat(1, [raw_output[:,0:2], tf.tanh(raw_output[:,2:4])])
     return (output, states)
 
 def create(parameters):
@@ -95,9 +186,13 @@ def create(parameters):
     # TODO: GRUCell cupport here.
     # cells = [rnn_cell.GRUCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn) for i,l in enumerate(parameters['lstm_layers'])]
     model = {
-        'output_weights': tf.Variable(tf.random_normal([parameters['lstm_layers'][-1], parameters['n_output']]),
+        'output_weights': tf.Variable(tf.random_normal([parameters['lstm_layers'][-1],
+                                                        # 6 = 2 sigma, 2 mean, weight, rho
+                                                        parameters['n_mixtures'] * 6]),
                                       name='output_weights'),
-        'output_bias': tf.Variable(tf.random_normal([parameters['n_output']]), name='output_bias'),
+        # We need to put at least the standard deviation output biases to about 5 to prevent zeros and infinities.
+        'output_bias': tf.Variable(tf.random_normal([parameters['n_mixtures'] * 6], mean = 5.0),
+                                   name='output_bias'),
         'rnn_cell': rnn_cell.MultiRNNCell(cells),
         'lr': lr,
         'x': x,
@@ -116,16 +211,16 @@ def create(parameters):
     # We will take 1 m as the arbitrary goal post to be happy with the error.
     # The delta error is taken in squared to emphasize its importance (errors are much smaller than in absolute
     # positions)
-    error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred[0][:,0:2]-y[:,0:2], 2), 1)), 0) + \
-        tf.nn.l2_loss(pred[0][:,2:4]-y[:,2:4])
-    cost = error
+    n_mixtures = parameters['n_mixtures']
+    batch_size = parameters['batch_size']
+    print pred[0]
+    cost = mixture_loss(pred[0], y, n_mixtures, batch_size)
     optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
     
     model['pred'] = pred[0]
     model['last_state'] = pred[1]
     model['cost'] = cost
     model['optimizer'] = optimizer
-    model['error'] = error
     
     return model
 
@@ -151,9 +246,10 @@ def create_generative(parameters):
     # TODO: GRUCell support here.
     # cells = [rnn_cell.GRUCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn) for i,l in enumerate(parameters['lstm_layers'])]
     model = {
-        'output_weights': tf.Variable(tf.random_normal([parameters['lstm_layers'][-1], parameters['n_output']]),
+        'output_weights': tf.Variable(tf.random_normal([parameters['lstm_layers'][-1],
+                                                        parameters['n_output'] * parameters['n_mixtures']]),
                                       name='output_weights'),
-        'output_bias': tf.Variable(tf.random_normal([parameters['n_output']]), name='output_bias'),
+        'output_bias': tf.Variable(tf.random_normal([parameters['n_output'] * parameters['n_mixtures']]), name='output_bias'),
         'rnn_cell': rnn_cell.MultiRNNCell(cells),
         'x': x,
         'y': y,

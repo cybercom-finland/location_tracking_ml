@@ -59,8 +59,9 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     # in the generation mode, resulting in players running out of the field.
     Ytrack = data[disp+n_steps,0,:]
     VYtrack = data[disp+n_steps,0,:] - data[disp+n_steps-1,0,:]
-    
-    targetY = np.concatenate((Ytrack, VYtrack), axis=0)
+
+    targetY = Ytrack
+    #targetY = np.concatenate((Ytrack, VYtrack), axis=0)
     
     batch_input = np.concatenate((Xtrack, Vtrack), axis=2)
     
@@ -82,8 +83,8 @@ def getNextTrainingBatchSequences(data, step, seqs, n_steps, n_peers):
     for seq in range(seqs):
         # Data is here a list of time, player, (x,y)
         sequenceX, sequenceY = getNextTrainingBatch(data, step, n_steps, n_peers)
-        resultX.append(sequenceX);
-        resultY.append(sequenceY);
+        resultX.append(sequenceX)
+        resultY.append(sequenceY)
     x = np.asarray(resultX)
     y = np.asarray(resultY)
     return x, y

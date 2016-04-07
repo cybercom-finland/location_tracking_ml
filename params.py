@@ -1,7 +1,7 @@
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.01,
-    'training_iters': 100000,
+    'learning_rate': 0.1,
+    'training_iters': 1000000,
     'display_step': int(100000 / 128 / 100) + 1,
     # Should not put too many display steps here, because accumulation of data takes memory. Doing ~100 print outs.
     'decay': 1.0, #0.99995,
@@ -19,10 +19,13 @@ parameters = {
     # x, y for 3 targets
     # TODO: Add enabled flag
     'n_input': 3*4,
-    # The minibatch is 128 sequences of 5 steps.
-    'batch_size': 128,
+    # The minibatch is 2048 * 4 sequences of 5 steps.
+    'batch_size': 2048 * 4,
     'n_steps': 5, # timesteps
-    # x, y, dx, dy for 1 target. TODO: Add enabled flag.
-    'n_output': 4,
-    'lstm_clip': 10.0
+    # x, y mixtures for 1 target. TODO: Add enabled flag.
+    # Note: This must currently always be two because of bivariate gaussian mixture network
+    'n_output': 2,
+    'lstm_clip': 10.0,
+    # For the mixture density network, how many mixtures we use per variable.
+    'n_mixtures': 3
 }

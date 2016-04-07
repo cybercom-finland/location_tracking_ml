@@ -17,7 +17,7 @@ import export_to_octave
 
 def train(parameters, model, trainData, testingData):
     print('Launching training.')
-    accuracy_summary = tf.scalar_summary("error", model["error"])
+    accuracy_summary = tf.scalar_summary("cost", model["cost"])
     merged = tf.merge_all_summaries()
     init = tf.initialize_all_variables()
     saver = tf.train.Saver(tf.all_variables())
@@ -55,11 +55,11 @@ def train(parameters, model, trainData, testingData):
                                                                              tf.float32).eval())})
                 if step % parameters['display_step'] == 0:
                     
-                    testData = manage_data.makeInputForTargetInd(testingData, np.random.randint(0,22))
+                    testData = manage_data.makeInputForTargetInd(testingData, np.random.randint(0, 22))
                     test_len = parameters['batch_size']
                     
-                    testTarget = random.randint(0,22)
-                    predictedBatch = random.randint(0,test_len-1)
+                    testTarget = random.randint(0, 22)
+                    predictedBatch = random.randint(0, test_len-1)
                     
                     saver.save(sess, 'soccer-model', global_step=iter)
                     
@@ -68,7 +68,7 @@ def train(parameters, model, trainData, testingData):
                     #export_to_octave.save('batch_ys.mat', 'batch_ys', batch_ys)
                     
                     # Calculate batch error as mean distance
-                    [error, prediction, loss] = sess.run([model['error'], model['pred'], model['cost']],
+                    [error, prediction, loss] = sess.run([model['cost'], model['pred'], model['cost']],
                         feed_dict={model['x']: batch_xs, model['y']: batch_ys,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
                                                                                  tf.float32).eval())})
@@ -110,7 +110,7 @@ def train(parameters, model, trainData, testingData):
                     test_y = test_yp.reshape((test_len, parameters['n_output']))
                     #export_to_octave.save('test_xp.mat', 'test_xp', test_x)
                     #export_to_octave.save('test_yp.mat', 'test_yp', test_y)
-                    [summary_str, testError, prediction] = sess.run([merged, model['error'], model['pred']],
+                    [summary_str, testError, prediction] = sess.run([merged, model['cost'], model['pred']],
                         feed_dict={model['x']: test_x,
                         model['y']: test_y,
                         model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],

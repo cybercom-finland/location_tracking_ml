@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import matplotlib
+from boto.gs.acl import SCOPE
 matplotlib.use('Agg')
 import pylab
 
@@ -12,7 +13,7 @@ import random
 import json
 import itertools
 
-epsilon = 0.000001
+epsilon = 1e-4
 
 # The input shape is [batch_size, n_mixtures * 6]
 def splitMix(output, n_mixtures, batch_size):
@@ -36,26 +37,15 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
 
     # Softmaxing the weights so that they sum up to one.
-    max_pi = tf.reduce_max(out_pi, 1, keep_dims=True)
-    out_pi = tf.sub(out_pi, max_pi)
+    out_pi = tf.nn.softmax(out_pi)
 
-    # out_pi must never be zero.
-    out_pi = tf.exp(out_pi)
-
-    normalize_pi = tf.inv(tf.reduce_sum(out_pi, 1, keep_dims=True))
-    out_pi = tf.mul(normalize_pi, out_pi)
-    # Always [-1, 1]
-    out_rho = tf.tanh(out_rho)
+    # Always [-0.25, 0.25]
+    out_rho = tf.tanh(out_rho) / 4
     #out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
-    # Making sigma always positive, and larger than 0.02.
-    out_sigma = tf.exp(out_sigma) + 0.02
+    # Making sigma always positive and at least 0.1
+    out_sigma = tf.exp(out_sigma) + 0.1
 
-    if True:
-        out_sigma = tf.Print(out_sigma, [out_sigma], message="out_sigma: ")
-        out_pi = tf.Print(out_pi, [out_pi], message="out_pi: ")
-        out_mu = tf.Print(out_mu, [out_mu], message="out_mu: ")
-        out_rho = tf.Print(out_rho, [out_rho], message="out_rho: ")
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
 # Returns the probability density for bivariate gaussians.
@@ -65,38 +55,42 @@ def softmax_mixtures(output, n_mixtures, batch_size):
 # Rho is the correlation of x and y for each batch and mixture.
 # The first dimension is batch, then mixture.
 def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
+    mu = tf.verify_tensor_all_finite(mu, "Mu not finite!")
+    y = tf.verify_tensor_all_finite(y, "Y not finite!")
     delta = tf.sub(tf.tile(tf.expand_dims(y, 1), [1, n_mixtures, 1]), mu)
-    sigma = sigma + epsilon
+    delta = tf.verify_tensor_all_finite(delta, "Delta not finite!")
+    sigma = tf.verify_tensor_all_finite(sigma, "Sigma not finite!")
     s = tf.abs(tf.reduce_prod(sigma, 2))
-    z = tf.reduce_sum(tf.square(tf.div(delta, sigma)), 2) - \
-        2 * tf.div(tf.mul(rho, tf.reduce_prod(delta, 2)), s)
+    s = tf.verify_tensor_all_finite(s, "S not finite!")
+    z = tf.reduce_sum(tf.square(tf.truediv(delta, sigma + epsilon)), 2) - \
+        2 * tf.truediv(tf.mul(rho, tf.reduce_prod(delta, 2)), s + epsilon)
+    z = tf.verify_tensor_all_finite(z, "Z not finite!")
     negRho = 1 - tf.square(rho)
+    negRho = tf.verify_tensor_all_finite(negRho, "negRho not finite!")
     #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
     # Note that if probability density goes to approximately zero the optimizer runs into trouble.
-    result = tf.exp(tf.div(-z, 2 * negRho))
-    denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
-    result = tf.div(result, denom) + epsilon
-    if True:
-        y = tf.Print(y, [y], message="y: ")
-        mu = tf.Print(mu, [mu], message="mu: ")
-        sigma = tf.Print(sigma, [sigma], message="sigma: ")
-        rho = tf.Print(rho, [rho], message="rho: ")
-        delta = tf.Print(delta, [delta], message="delta: ")
-        s = tf.Print(s, [s], message="s: ")
-        z = tf.Print(z, [z], message="z: ")
-        negRho = tf.Print(negRho, [negRho], message="negRho: ")
-        denom = tf.Print(denom, [denom], message="denom: ")
-        result = tf.Print(result, [result], message="result: ")
+    result = tf.exp(tf.truediv(-z, 2 * negRho + epsilon))
+    result = tf.verify_tensor_all_finite(result, "Result in bivariate normal not finite!")
+    denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho + epsilon))
+    denom = tf.verify_tensor_all_finite(denom, "Denom in bivariate normal not finite!")
+    result = tf.truediv(result, denom + epsilon)
+    result = tf.verify_tensor_all_finite(result, "Result2 in bivariate normal not finite!")
     return result
 
 def mixture_loss(pred, y, n_mixtures, batch_size):
+    pred = tf.verify_tensor_all_finite(pred, "Pred not finite!")
     out_pi, out_sigma, out_mu, out_rho = splitMix(pred, n_mixtures, batch_size)
     result = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
     
+    result = tf.verify_tensor_all_finite(result, "Result not finite1!")
     result = tf.mul(result, out_pi)
+    result = tf.verify_tensor_all_finite(result, "Result not finite2!")
     result = tf.reduce_sum(result, 1, keep_dims=True)
+    result = tf.verify_tensor_all_finite(result, "Result not finite3!")
     result = -tf.log(result + epsilon)
+    result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     result = tf.reduce_mean(result)
+    result = tf.verify_tensor_all_finite(result, "Result not finite5!")
     return result
 
 # Returns the LSTM stack created based on the parameters.
@@ -109,15 +103,18 @@ def RNN(parameters, input, model, initial_state):
     # 3 - n. LSTM layers
     # n+1. linear layer
     # n+1. output
-    
+    input = tf.verify_tensor_all_finite(input, "Input not finite!")
     # input shape: (batch_size, n_steps, n_input)
     input = tf.transpose(input, [1, 0, 2])  # permute n_steps and batch_size
+    input = tf.verify_tensor_all_finite(input, "Input not finite2!")
     
     # Reshape to prepare input to the linear layer
     input = tf.reshape(input, [-1, parameters['n_input']]) # (n_steps*batch_size, n_input)
+    input = tf.verify_tensor_all_finite(input, "Input not finite3!")
     
     # 1. layer, linear activation for each batch and step.
     if (model.has_key('input_weights')):
+        model['input_weights'] = tf.clip_by_value(model['input_weights'], -2, 2)
         input = tf.matmul(input, model['input_weights']) + model['input_bias']
 
     # Split data because rnn cell needs a list of inputs for the RNN inner loop,
@@ -125,14 +122,18 @@ def RNN(parameters, input, model, initial_state):
     # This is not well documented, but check for yourself here: https://goo.gl/NzA5pX
     input = tf.split(0, parameters['n_steps'], input) # n_steps * (batch_size, :)
 
+    initial_state = tf.verify_tensor_all_finite(initial_state, "Initial state not finite!")
     # Note: States is shaped: batch_size x cell.state_size
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
+    outputs[-1] = tf.verify_tensor_all_finite(outputs[-1], "Outputs not finite!")
     # Only the last output is interesting for error back propagation and prediction.
     # Note that all batches are handled together here.
-    if True:
-        model['output_weights'] = tf.Print(model['output_weights'], [model['output_weights']], message="output weights: ")
-        model['output_bias'] = tf.Print(model['output_bias'], [model['output_bias']], message="output bias: ")
+    model['output_weights'] = tf.clip_by_value(model['output_weights'], -50, 50)
+    model['output_bias'] = tf.clip_by_value(model['output_bias'], -50, 50)
+    model['output_weights'] = tf.verify_tensor_all_finite(model['output_weights'], "Output weights not finite!")
+    model['output_bias'] = tf.verify_tensor_all_finite(model['output_bias'], "Output biases not finite!")
     raw_output = tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']
+    raw_output = tf.verify_tensor_all_finite(raw_output, "Raw output not finite!")
     
     n_mixtures = parameters['n_mixtures']
     batch_size = parameters['batch_size']
@@ -140,6 +141,7 @@ def RNN(parameters, input, model, initial_state):
     # The number of mixtures is intuitively the number of possible actions the target can take.
     # The output is divided into triplets of n_mixtures mixture parameters for the 2 absolute position coordinates.
     output = softmax_mixtures(raw_output, n_mixtures, batch_size)
+    output = tf.verify_tensor_all_finite(output, "Final output not finite!")
 
     return (output, states)
 
@@ -198,7 +200,8 @@ def create(parameters):
                                                         parameters['n_mixtures'] * 6]),
                                       name='output_weights'),
         # We need to put at least the standard deviation output biases to about 5 to prevent zeros and infinities.
-        'output_bias': tf.Variable(tf.random_normal([parameters['n_mixtures'] * 6], mean = 5.0, stddev = 3.0),
+        # , mean = 5.0, stddev = 3.0
+        'output_bias': tf.Variable(tf.random_normal([parameters['n_mixtures'] * 6]),
                                    name='output_bias'),
         'rnn_cell': rnn_cell.MultiRNNCell(cells),
         'lr': lr,
@@ -220,13 +223,28 @@ def create(parameters):
     # positions)
     n_mixtures = parameters['n_mixtures']
     batch_size = parameters['batch_size']
-    cost = mixture_loss(pred[0], y, n_mixtures, batch_size)
-    optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost) # Adam Optimizer
     
+    # RNN/MultiRNNCell/Cell1/LSTMCell/W_O_diag
+    # RNN/MultiRNNCell/Cell1/LSTMCell/W_I_diag
+    # RNN/MultiRNNCell/Cell1/LSTMCell/W_F_diag
+    # RNN/MultiRNNCell/Cell1/LSTMCell/W_0
+    # RNN/MultiRNNCell/Cell1/LSTMCell/B
+        
+    weight_decay = 0
+    tvars = tf.trainable_variables()
+    for variable in tvars:
+        variable = tf.clip_by_value(variable, -50, 50)
+    cost = mixture_loss(pred[0], y, n_mixtures, batch_size)
+
+    # The gradients go fast to infinity in certain points if not clipped.
+    grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars), 1.0)
+    optimizer = tf.train.AdamOptimizer(learning_rate = lr) # Adam Optimizer
+    train_op = optimizer.apply_gradients(zip(grads, tvars))
+     
     model['pred'] = pred[0]
     model['last_state'] = pred[1]
     model['cost'] = cost
-    model['optimizer'] = optimizer
+    model['optimizer'] = train_op
     
     return model
 

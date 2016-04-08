@@ -1,18 +1,18 @@
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.2,
-    'training_iters': 1000000,
+    'learning_rate': 0.1,
+    'training_iters': 5000000,
     'display_step': int(100000 / 128 / 100) + 1,
     # Should not put too many display steps here, because accumulation of data takes memory. Doing ~100 print outs.
     'decay': 1.0, #0.99995,
     # 16 input layer size (against the size 12 input) seems to be too little to capture the necessary features.
     # None seems to work better.
     'input_layer': None,
-    'lstm_layers': [7, 4],
+    'lstm_layers': [8, 8],
     # How many targets are there
     'n_targets': 22,
     'n_peers': 2,
-    # x, y for 3 targets
+    # x, y, dx, dy for 3 targets
     # TODO: Add enabled flag
     'n_input': 3*4,
     # The minibatch is 2048 * 4 sequences of 5 steps.

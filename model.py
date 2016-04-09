@@ -37,14 +37,14 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
 
     # Softmaxing the weights so that they sum up to one.
-    out_pi = tf.nn.softmax(out_pi)
+    out_pi = tf.nn.softmax(tf.sigmoid(out_pi))
 
     # Always [-1, 1]
     out_rho = tf.tanh(out_rho)
     #out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
-    # Making sigma always positive and at least 0.1
-    out_sigma = tf.exp(out_sigma) + 0.1
+    # Making sigma always positive and between some sane values (0.018316, 54.598).
+    out_sigma = tf.exp(tf.tanh(out_sigma) * 4)
 
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
@@ -67,14 +67,14 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     z = tf.reduce_sum(tf.square(tf.mul(delta, tf.inv(sigma + epsilon))), 2) - \
         2 * tf.mul(tf.mul(rho, tf.reduce_prod(delta, 2)), tf.inv(s + epsilon))
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
-    # 0 <= negRho <= 1
-    negRho = 1 - tf.square(rho)
+    # 0.5 <= negRho <= 1
+    negRho = (1 - tf.square(rho)) * 0.5 + 0.5
     negRho = tf.verify_tensor_all_finite(negRho, "negRho not finite!")
     #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
-    # Note that if probability density goes to approximately zero the optimizer runs into trouble.
-    result = tf.exp(tf.mul(-z, tf.inv(2 * negRho + epsilon)) - epsilon)
+    # Note that if negRho goes near zero, or z goes really large, this explodes.
+    result = tf.exp(tf.mul(-z, tf.inv(2 * negRho)))
     result = tf.verify_tensor_all_finite(result, "Result in bivariate normal not finite!")
-    denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho + epsilon))
+    denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
     denom = tf.verify_tensor_all_finite(denom, "Denom in bivariate normal not finite!")
     result = tf.mul(result, tf.inv(denom + epsilon))
     result = tf.verify_tensor_all_finite(result, "Result2 in bivariate normal not finite!")
@@ -83,22 +83,27 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
 def mixture_loss(pred, y, n_mixtures, batch_size):
     pred = tf.verify_tensor_all_finite(pred, "Pred not finite!")
     out_pi, out_sigma, out_mu, out_rho = splitMix(pred, n_mixtures, batch_size)
-    result = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
-    result = tf.Print(result, [tf.reduce_sum(result)], "Result: ")
+    tf.Assert(tf.greater(out_pi, 0), [out_pi])
+    tf.Assert(tf.greater(out_sigma, 0), [out_sigma])
+    tf.Assert(tf.less(out_rho, 1), [out_rho])
+    tf.Assert(tf.greater(out_rho, -1), [out_rho])
+    result_binorm = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
+    result_binorm = tf.Print(result_binorm, [tf.reduce_sum(result_binorm)], "Result: ")
     
-    result = tf.verify_tensor_all_finite(result, "Result not finite1!")
-    result = tf.mul(result, out_pi)
-    result = tf.verify_tensor_all_finite(result, "Result not finite2!")
-    result = tf.reduce_sum(result, 1, keep_dims=True)
-    result = tf.Print(result, [result], "Result2: ")
-    result = tf.verify_tensor_all_finite(result, "Result not finite3!")
-    result = -tf.log(result + epsilon)
+    result_binorm = tf.verify_tensor_all_finite(result_binorm, "Result not finite1!")
+    result_weighted = tf.mul(result_binorm, out_pi)
+    result_weighted = tf.verify_tensor_all_finite(result_weighted, "Result not finite2!")
+    result_raw = tf.reduce_sum(result_weighted, 1, keep_dims=True)
+    result_raw = tf.Print(result_raw, [result_raw], "Result2: ")
+    result_raw = tf.verify_tensor_all_finite(result_raw, "Result not finite3!")
+    result = -tf.log(result_raw + epsilon)
+    tf.Assert(tf.greater(result, 0), [result])
     result = tf.Print(result, [result], "Result3: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     # Adding additional error terms to prevent numerical instability for flat gradients for sigma and rho.
-    s = tf.abs(tf.reduce_prod(out_sigma, 2))
-    result = result + (tf.square(out_rho) + tf.inv(s + epsilon) + tf.inv(out_pi + epsilon)) * 0.001
-    result = tf.reduce_mean(result)
+    #s = tf.abs(tf.reduce_prod(out_sigma, 2))
+    #result = result + (tf.square(out_rho) + tf.inv(s + epsilon) + tf.inv(out_pi + epsilon)) * 0.000001
+    result = tf.reduce_sum(result)
     result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")
     return result
@@ -124,7 +129,8 @@ def RNN(parameters, input, model, initial_state):
     
     # 1. layer, linear activation for each batch and step.
     if (model.has_key('input_weights')):
-        model['input_weights'] = tf.clip_by_value(model['input_weights'], -200, 200)
+        model['input_weights'] = tf.clip_by_value(model['input_weights'], -parameters['lstm_clip'], parameters['lstm_clip'])
+        model['input_bias'] = tf.clip_by_value(model['input_bias'], -parameters['lstm_clip'], parameters['lstm_clip'])
         input = tf.matmul(input, model['input_weights']) + model['input_bias']
 
     # Split data because rnn cell needs a list of inputs for the RNN inner loop,
@@ -139,8 +145,8 @@ def RNN(parameters, input, model, initial_state):
     # Only the last output is interesting for error back propagation and prediction.
     # Note that all batches are handled together here.
 
-    model['output_weights'] = tf.clip_by_value(model['output_weights'], -200, 200)
-    model['output_bias'] = tf.clip_by_value(model['output_bias'], -200, 200)
+    model['output_weights'] = tf.clip_by_value(model['output_weights'], -parameters['lstm_clip'], parameters['lstm_clip'])
+    model['output_bias'] = tf.clip_by_value(model['output_bias'], -parameters['lstm_clip'], parameters['lstm_clip'])
     model['output_weights'] = tf.verify_tensor_all_finite(model['output_weights'], "Output weights not finite!")
     model['output_bias'] = tf.verify_tensor_all_finite(model['output_bias'], "Output biases not finite!")
     raw_output = tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']

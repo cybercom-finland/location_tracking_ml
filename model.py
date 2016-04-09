@@ -37,10 +37,10 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
 
     # Softmaxing the weights so that they sum up to one.
-    out_pi = tf.nn.softmax(tf.sigmoid(out_pi))
+    out_pi = tf.nn.softmax(tf.log(epsilon + tf.abs(out_pi)))
 
-    # Always [-1, 1]
-    out_rho = tf.tanh(out_rho)
+    # Always [-0.2, 0.2]
+    out_rho = tf.tanh(out_rho) * 0.2
     #out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
     # Making sigma always positive and between some sane values (0.018316, 54.598).
@@ -67,8 +67,8 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     z = tf.reduce_sum(tf.square(tf.mul(delta, tf.inv(sigma + epsilon))), 2) - \
         2 * tf.mul(tf.mul(rho, tf.reduce_prod(delta, 2)), tf.inv(s + epsilon))
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
-    # 0.5 <= negRho <= 1
-    negRho = (1 - tf.square(rho)) * 0.5 + 0.5
+    # 0 < negRho <= 1
+    negRho = (1 - tf.square(rho)) # * 0.5 + 0.5
     negRho = tf.verify_tensor_all_finite(negRho, "negRho not finite!")
     #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
     # Note that if negRho goes near zero, or z goes really large, this explodes.

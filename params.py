@@ -1,6 +1,6 @@
 # TODO: Make a run with different parameters and plot results
 parameters = {
-    'learning_rate': 0.1,
+    'learning_rate': 0.5,
     'training_iters': 5000000,
     'display_step': int(100000 / 128 / 100) + 1,
     # Should not put too many display steps here, because accumulation of data takes memory. Doing ~100 print outs.
@@ -21,7 +21,7 @@ parameters = {
     # x, y mixtures for 1 target. TODO: Add enabled flag.
     # Note: This must currently always be two because of bivariate gaussian mixture network
     'n_output': 2,
-    'lstm_clip': 10.0,
+    'lstm_clip': 200.0,
     # For the mixture density network, how many mixtures we use per variable.
     'n_mixtures': 3
 }

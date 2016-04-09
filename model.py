@@ -13,7 +13,7 @@ import random
 import json
 import itertools
 
-epsilon = 1e-4
+epsilon = 0.00001
 
 # The input shape is [batch_size, n_mixtures * 6]
 def splitMix(output, n_mixtures, batch_size):
@@ -39,8 +39,8 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     # Softmaxing the weights so that they sum up to one.
     out_pi = tf.nn.softmax(out_pi)
 
-    # Always [-0.25, 0.25]
-    out_rho = tf.tanh(out_rho) / 4
+    # Always [-1, 1]
+    out_rho = tf.tanh(out_rho)
     #out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
     # Making sigma always positive and at least 0.1
@@ -61,19 +61,22 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     delta = tf.verify_tensor_all_finite(delta, "Delta not finite!")
     sigma = tf.verify_tensor_all_finite(sigma, "Sigma not finite!")
     s = tf.abs(tf.reduce_prod(sigma, 2))
+    # s >= 0
     s = tf.verify_tensor_all_finite(s, "S not finite!")
-    z = tf.reduce_sum(tf.square(tf.truediv(delta, sigma + epsilon)), 2) - \
-        2 * tf.truediv(tf.mul(rho, tf.reduce_prod(delta, 2)), s + epsilon)
+    # -1 <= rho <= 1
+    z = tf.reduce_sum(tf.square(tf.mul(delta, tf.inv(sigma + epsilon))), 2) - \
+        2 * tf.mul(tf.mul(rho, tf.reduce_prod(delta, 2)), tf.inv(s + epsilon))
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
+    # 0 <= negRho <= 1
     negRho = 1 - tf.square(rho)
     negRho = tf.verify_tensor_all_finite(negRho, "negRho not finite!")
     #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
     # Note that if probability density goes to approximately zero the optimizer runs into trouble.
-    result = tf.exp(tf.truediv(-z, 2 * negRho + epsilon))
+    result = tf.exp(tf.mul(-z, tf.inv(2 * negRho + epsilon)) - epsilon)
     result = tf.verify_tensor_all_finite(result, "Result in bivariate normal not finite!")
     denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho + epsilon))
     denom = tf.verify_tensor_all_finite(denom, "Denom in bivariate normal not finite!")
-    result = tf.truediv(result, denom + epsilon)
+    result = tf.mul(result, tf.inv(denom + epsilon))
     result = tf.verify_tensor_all_finite(result, "Result2 in bivariate normal not finite!")
     return result
 
@@ -81,15 +84,22 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     pred = tf.verify_tensor_all_finite(pred, "Pred not finite!")
     out_pi, out_sigma, out_mu, out_rho = splitMix(pred, n_mixtures, batch_size)
     result = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
+    result = tf.Print(result, [tf.reduce_sum(result)], "Result: ")
     
     result = tf.verify_tensor_all_finite(result, "Result not finite1!")
     result = tf.mul(result, out_pi)
     result = tf.verify_tensor_all_finite(result, "Result not finite2!")
     result = tf.reduce_sum(result, 1, keep_dims=True)
+    result = tf.Print(result, [result], "Result2: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite3!")
     result = -tf.log(result + epsilon)
+    result = tf.Print(result, [result], "Result3: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
+    # Adding additional error terms to prevent numerical instability for flat gradients for sigma and rho.
+    s = tf.abs(tf.reduce_prod(out_sigma, 2))
+    result = result + (tf.square(out_rho) + tf.inv(s + epsilon) + tf.inv(out_pi + epsilon)) * 0.001
     result = tf.reduce_mean(result)
+    result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")
     return result
 
@@ -114,7 +124,7 @@ def RNN(parameters, input, model, initial_state):
     
     # 1. layer, linear activation for each batch and step.
     if (model.has_key('input_weights')):
-        model['input_weights'] = tf.clip_by_value(model['input_weights'], -2, 2)
+        model['input_weights'] = tf.clip_by_value(model['input_weights'], -200, 200)
         input = tf.matmul(input, model['input_weights']) + model['input_bias']
 
     # Split data because rnn cell needs a list of inputs for the RNN inner loop,
@@ -128,8 +138,9 @@ def RNN(parameters, input, model, initial_state):
     outputs[-1] = tf.verify_tensor_all_finite(outputs[-1], "Outputs not finite!")
     # Only the last output is interesting for error back propagation and prediction.
     # Note that all batches are handled together here.
-    model['output_weights'] = tf.clip_by_value(model['output_weights'], -50, 50)
-    model['output_bias'] = tf.clip_by_value(model['output_bias'], -50, 50)
+
+    model['output_weights'] = tf.clip_by_value(model['output_weights'], -200, 200)
+    model['output_bias'] = tf.clip_by_value(model['output_bias'], -200, 200)
     model['output_weights'] = tf.verify_tensor_all_finite(model['output_weights'], "Output weights not finite!")
     model['output_bias'] = tf.verify_tensor_all_finite(model['output_bias'], "Output biases not finite!")
     raw_output = tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']
@@ -217,6 +228,9 @@ def create(parameters):
     
     pred = RNN(parameters, x, model, istate)
     
+    for variable in tf.trainable_variables():
+        variable = tf.verify_tensor_all_finite(variable, "Trainable variable not finite!")
+        
     # Define loss and optimizer
     # We will take 1 m as the arbitrary goal post to be happy with the error.
     # The delta error is taken in squared to emphasize its importance (errors are much smaller than in absolute
@@ -230,21 +244,18 @@ def create(parameters):
     # RNN/MultiRNNCell/Cell1/LSTMCell/W_0
     # RNN/MultiRNNCell/Cell1/LSTMCell/B
         
-    weight_decay = 0
-    tvars = tf.trainable_variables()
-    for variable in tvars:
-        variable = tf.clip_by_value(variable, -50, 50)
     cost = mixture_loss(pred[0], y, n_mixtures, batch_size)
 
     # The gradients go fast to infinity in certain points if not clipped.
-    grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars), 1.0)
-    optimizer = tf.train.AdamOptimizer(learning_rate = lr) # Adam Optimizer
-    train_op = optimizer.apply_gradients(zip(grads, tvars))
+    #grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars), 1.0)
+    # tf.train.AdamOptimizer
+    optimizer = tf.train.AdamOptimizer(learning_rate = lr).minimize(cost) # Adam Optimizer
+    # train_op = optimizer.apply_gradients(zip(grads, tvars))
      
     model['pred'] = pred[0]
     model['last_state'] = pred[1]
     model['cost'] = cost
-    model['optimizer'] = train_op
+    model['optimizer'] = optimizer
     
     return model
 

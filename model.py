@@ -37,15 +37,16 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
 
     # Softmaxing the weights so that they sum up to one.
-    out_pi = tf.nn.softmax(tf.log(epsilon + tf.abs(out_pi)))
+    out_pi = tf.nn.softmax(tf.log(tf.clip_by_value(tf.sigmoid(out_pi), epsilon, 1.0)))
 
     # Always [-0.2, 0.2]
-    out_rho = tf.tanh(out_rho) * 0.2
-    #out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
+    out_rho = tf.tanh(out_rho)
+    # out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
     # Making sigma always positive and between some sane values (0.018316, 54.598).
     out_sigma = tf.exp(tf.tanh(out_sigma) * 4)
-
+    # out_sigma = tf.ones([batch_size, n_mixtures, 2])
+    
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
 # Returns the probability density for bivariate gaussians.
@@ -96,13 +97,13 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     result_raw = tf.reduce_sum(result_weighted, 1, keep_dims=True)
     result_raw = tf.Print(result_raw, [result_raw], "Result2: ")
     result_raw = tf.verify_tensor_all_finite(result_raw, "Result not finite3!")
-    result = -tf.log(result_raw + epsilon)
+    result = -tf.log(tf.clip_by_value(result_raw, epsilon, 1.0))
     tf.Assert(tf.greater(result, 0), [result])
     result = tf.Print(result, [result], "Result3: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     # Adding additional error terms to prevent numerical instability for flat gradients for sigma and rho.
-    #s = tf.abs(tf.reduce_prod(out_sigma, 2))
-    #result = result + (tf.square(out_rho) + tf.inv(s + epsilon) + tf.inv(out_pi + epsilon)) * 0.000001
+    s = tf.abs(tf.reduce_prod(out_sigma, 2))
+    result = result + (tf.square(out_rho) + tf.inv(s + epsilon) + tf.inv(out_pi + epsilon))
     result = tf.reduce_sum(result)
     result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")

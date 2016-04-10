@@ -15,13 +15,13 @@ parameters = {
     # x, y, dx, dy for 3 targets
     # TODO: Add enabled flag
     'n_input': 3*4,
-    # The minibatch is 2048 * 4 sequences of 5 steps.
-    'batch_size': 2048 * 4,
+    # The minibatch is 2048 * 8 sequences of 5 steps.
+    'batch_size': 2048 * 8,
     'n_steps': 5, # timesteps
     # x, y mixtures for 1 target. TODO: Add enabled flag.
     # Note: This must currently always be two because of bivariate gaussian mixture network
     'n_output': 2,
-    'lstm_clip': 50.0,
+    'lstm_clip': 100.0,
     # For the mixture density network, how many mixtures we use per variable.
     'n_mixtures': 3
 }

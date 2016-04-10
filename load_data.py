@@ -38,6 +38,14 @@ def load_data():
                 if float(pos['x']) > 1000:
                     positionTracks[index][pos['id']] = positionTracks[index-1][pos['id']];
                 else:
+                    if float(pos['x']) < -60:
+                        pos['x'] = -60;
+                    if float(pos['x']) > 60:
+                        pos['x'] = 60;
+                    if float(pos['y']) < -40:
+                        pos['y'] = -40;
+                    if float(pos['y']) > 40:
+                        pos['y'] = 40;
                     positionTracks[index][pos['id']] = [float(pos['x']), float(pos['y'])];
             index += 1
     return positionTracks

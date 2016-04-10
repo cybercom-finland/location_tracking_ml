@@ -104,16 +104,33 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     tf.Assert(tf.greater(result, 0), [result])
     result = tf.Print(result, [result], "Result3: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
-    # Adding additional error terms to prevent numerical instability for flat gradients for sigma and rho.
+    # Adding additional error terms to prevent numerical instability for flat gradients.
+    # If the optimizer is unsure and sees no gradient, increase sigma to widen the gaussians.
     s = tf.reduce_sum(tf.square(out_sigma), 2)
     
-    result = result + tf.square(out_rho) + tf.inv(s + 0.1)
+    result = result + tf.inv(s + 0.1)
     result = tf.reduce_sum(result)
     result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")
     return result
 
-# Returns the LSTM stack created based on the parameters.
+def get_pi_idx(x, pdf):
+    N = pdf.size
+    accumulate = 0
+    for i in range(0, N):
+        accumulate += pdf[i]
+        if (accumulate >= x):
+            return i
+    print 'error with sampling ensemble'
+    return -1
+
+def sample_gaussian_2d(mu1, mu2, s1, s2, rho):
+    mean = [mu1, mu2]
+    cov = [[s1*s1, rho*s1*s2], [rho*s1*s2, s2*s2]]
+    x = np.random.multivariate_normal(mean, cov, 1)
+    return x[0][0], x[0][1]
+
+  # Returns the LSTM stack created based on the parameters.
 # Processes several batches at once.
 # Input shape is: (parameters['batch_size'], parameters['n_steps'], parameters['n_input'])
 def RNN(parameters, input, model, initial_state):

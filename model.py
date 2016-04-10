@@ -48,7 +48,7 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_sigma = tf.exp(tf.tanh(out_sigma) * 4)
     #out_sigma = tf.ones([batch_size, n_mixtures, 2])
 
-    out_mu = tf.pow(out_mu * 10, 3)
+    out_mu = out_mu * 100
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
 # Returns the probability density for bivariate gaussians.
@@ -61,17 +61,18 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     mu = tf.verify_tensor_all_finite(mu, "Mu not finite!")
     y = tf.verify_tensor_all_finite(y, "Y not finite!")
     delta = tf.sub(tf.tile(tf.expand_dims(y, 1), [1, n_mixtures, 1]), mu)
+    delta = tf.Print(delta, [delta], "Delta: ")
     delta = tf.verify_tensor_all_finite(delta, "Delta not finite!")
     sigma = tf.verify_tensor_all_finite(sigma, "Sigma not finite!")
     s = tf.abs(tf.reduce_prod(sigma, 2))
     # s >= 0
     s = tf.verify_tensor_all_finite(s, "S not finite!")
     # -1 <= rho <= 1
-    z = tf.reduce_sum(tf.square(tf.mul(delta, tf.inv(sigma + epsilon))), 2) - \
-        2 * tf.mul(tf.mul(rho, tf.reduce_prod(delta, 2)), tf.inv(s + epsilon))
+    z = tf.reduce_sum(tf.square(tf.truediv(delta, sigma + epsilon)), 2) - \
+        2 * tf.truediv(tf.mul(rho, tf.reduce_prod(delta, 2)), s + epsilon)
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
     # 0 < negRho <= 1
-    negRho = (1 - tf.square(rho)) # * 0.5 + 0.5
+    negRho = tf.clip_by_value(1 - tf.square(rho), epsilon, 1.0) # * 0.5 + 0.5
     negRho = tf.verify_tensor_all_finite(negRho, "negRho not finite!")
     #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
     # Note that if negRho goes near zero, or z goes really large, this explodes.
@@ -104,8 +105,9 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     result = tf.Print(result, [result], "Result3: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     # Adding additional error terms to prevent numerical instability for flat gradients for sigma and rho.
-    s = tf.abs(tf.reduce_prod(out_sigma, 2))
-    result = result + tf.square(out_rho) + tf.inv(s + epsilon) + tf.inv(out_pi + epsilon)
+    s = tf.reduce_sum(tf.square(out_sigma), 2)
+    
+    result = result + tf.square(out_rho) + tf.inv(s + 0.1)
     result = tf.reduce_sum(result)
     result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")
@@ -144,6 +146,7 @@ def RNN(parameters, input, model, initial_state):
     initial_state = tf.verify_tensor_all_finite(initial_state, "Initial state not finite!")
     # Note: States is shaped: batch_size x cell.state_size
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
+    outputs[-1] = tf.clip_by_value(outputs[-1], -parameters['lstm_clip'], parameters['lstm_clip'])
     outputs[-1] = tf.verify_tensor_all_finite(outputs[-1], "Outputs not finite!")
     # Only the last output is interesting for error back propagation and prediction.
     # Note that all batches are handled together here.

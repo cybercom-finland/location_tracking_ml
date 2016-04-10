@@ -216,7 +216,14 @@ Ideas and Notions
    do not bring relevant new information.
  * Predicting difference to the last position is more accurate than predicting absolute position, but
    it leads to the predicted position error accumulation so that the player drifts out of the field.
- * Output coding by Mixture Density Networks would be something to try.
+ * When coding output by Mixture Density Networks, and the domain for the outputs is large compared to variances, there
+   are a few things to take into account:
+   * Sigma must have a small loss term (decay), to make sure that when the gaussian gradients are zero (the variances
+     are too small, and the means are off) the optimizer increases the sigma, that is, the variances, to widen the gaussians,
+     and to subsequently make it possible to find the gradient.
+   * Rho must be prevented from going too near -1 and 1, because that causes an effective variance towards a certain direction
+     to be near zero, regardless of sigma, and that means again that the optimizer doesn't see a gradient for large
+     errors in that direction.
 
 Copyright / License
 ===================

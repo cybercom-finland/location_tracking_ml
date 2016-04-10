@@ -61,7 +61,7 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     mu = tf.verify_tensor_all_finite(mu, "Mu not finite!")
     y = tf.verify_tensor_all_finite(y, "Y not finite!")
     delta = tf.sub(tf.tile(tf.expand_dims(y, 1), [1, n_mixtures, 1]), mu)
-    delta = tf.Print(delta, [delta], "Delta: ")
+    delta = tf.Print(delta, [tf.reduce_mean(tf.abs(delta))], "Mean absolute delta: ")
     delta = tf.verify_tensor_all_finite(delta, "Delta not finite!")
     sigma = tf.verify_tensor_all_finite(sigma, "Sigma not finite!")
     s = tf.abs(tf.reduce_prod(sigma, 2))
@@ -92,25 +92,24 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     tf.Assert(tf.less(out_rho, 1), [out_rho])
     tf.Assert(tf.greater(out_rho, -1), [out_rho])
     result_binorm = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
-    result_binorm = tf.Print(result_binorm, [tf.reduce_sum(result_binorm)], "Result: ")
     
     result_binorm = tf.verify_tensor_all_finite(result_binorm, "Result not finite1!")
     result_weighted = tf.mul(result_binorm, out_pi)
     result_weighted = tf.verify_tensor_all_finite(result_weighted, "Result not finite2!")
     result_raw = tf.reduce_sum(result_weighted, 1, keep_dims=True)
-    result_raw = tf.Print(result_raw, [result_raw], "Result2: ")
+    result_raw = tf.Print(result_raw, [tf.reduce_sum(result_raw)], "Sum of weighted density. If zero, sigma is too small: ")
     result_raw = tf.verify_tensor_all_finite(result_raw, "Result not finite3!")
     result = -tf.log(tf.clip_by_value(result_raw, 0.0001, 1.0))
     tf.Assert(tf.greater(result, 0), [result])
-    result = tf.Print(result, [result], "Result3: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     # Adding additional error terms to prevent numerical instability for flat gradients.
     # If the optimizer is unsure and sees no gradient, increase sigma to widen the gaussians.
     s = tf.reduce_sum(tf.square(out_sigma), 2)
+    s = tf.Print(s, [tf.reduce_mean(tf.sqrt(s))], "Sigma. Make sure this increases if weighted density is zero: ")
     
-    result = result + tf.inv(s + 0.1)
+    result = result + tf.inv(s + 0.15)
     result = tf.reduce_sum(result)
-    result = tf.Print(result, [result], "Result4: ")
+    # result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")
     return result
 

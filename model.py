@@ -107,7 +107,7 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     s = tf.reduce_sum(tf.square(out_sigma), 2)
     s = tf.Print(s, [tf.reduce_mean(tf.sqrt(s))], "Sigma. Make sure this increases if weighted density is zero: ")
     
-    result = result + tf.inv(s + 0.15)
+    result = result + (1 - 100.0 * tf.minimum(tf.reduce_sum(result_raw), 0.01)) * tf.inv(s + epsilon)
     result = tf.reduce_sum(result)
     # result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")

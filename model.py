@@ -48,7 +48,7 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_sigma = tf.exp(tf.tanh(out_sigma) * 4)
     #out_sigma = tf.ones([batch_size, n_mixtures, 2])
 
-    out_mu = out_mu * 100
+    out_mu = tf.tanh(out_mu) * 100
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
 # Returns the probability density for bivariate gaussians.

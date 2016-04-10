@@ -37,10 +37,10 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
 
     # Softmaxing the weights so that they sum up to one.
-    out_pi = tf.nn.softmax(tf.log(tf.clip_by_value(tf.sigmoid(out_pi), epsilon, 1.0)))
+    out_pi = tf.nn.softmax(tf.log(tf.clip_by_value(tf.sigmoid(out_pi), 0.01, 1.0)))
 
     # Always [-0.2, 0.2]
-    out_rho = tf.tanh(out_rho)
+    out_rho = tf.tanh(out_rho) * 0.2
     # out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
     # Making sigma always positive and between some sane values (0.018316, 54.598).
@@ -97,7 +97,7 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     result_raw = tf.reduce_sum(result_weighted, 1, keep_dims=True)
     result_raw = tf.Print(result_raw, [result_raw], "Result2: ")
     result_raw = tf.verify_tensor_all_finite(result_raw, "Result not finite3!")
-    result = -tf.log(tf.clip_by_value(result_raw, epsilon, 1.0))
+    result = -tf.log(tf.clip_by_value(result_raw, 0.01, 1.0))
     tf.Assert(tf.greater(result, 0), [result])
     result = tf.Print(result, [result], "Result3: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")

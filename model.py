@@ -13,7 +13,7 @@ import random
 import json
 import itertools
 
-epsilon = 0.00001
+epsilon = 0.0001
 
 # The input shape is [batch_size, n_mixtures * 6]
 def splitMix(output, n_mixtures, batch_size):
@@ -37,16 +37,18 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
 
     # Softmaxing the weights so that they sum up to one.
-    out_pi = tf.nn.softmax(tf.log(tf.clip_by_value(tf.sigmoid(out_pi), 0.01, 1.0)))
+    #out_pi = tf.nn.softmax(tf.log(tf.clip_by_value(tf.sigmoid(out_pi), 0.01, 1.0)))
+    out_pi = tf.mul(tf.ones([batch_size, 1]), [[1.0, 0, 0]])
 
     # Always [-0.2, 0.2]
-    out_rho = tf.tanh(out_rho) * 0.2
-    # out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
+    #out_rho = tf.tanh(out_rho) * 0.2
+    out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
     # Making sigma always positive and between some sane values (0.018316, 54.598).
-    out_sigma = tf.exp(tf.tanh(out_sigma) * 4)
-    # out_sigma = tf.ones([batch_size, n_mixtures, 2])
-    
+    #out_sigma = tf.exp(tf.tanh(out_sigma) * 4)
+    out_sigma = tf.ones([batch_size, n_mixtures, 2])
+
+    out_mu = out_mu * 50
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
 # Returns the probability density for bivariate gaussians.
@@ -65,8 +67,8 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     # s >= 0
     s = tf.verify_tensor_all_finite(s, "S not finite!")
     # -1 <= rho <= 1
-    z = tf.reduce_sum(tf.square(tf.mul(delta, tf.inv(tf.maximum(sigma, epsilon)))), 2) - \
-        2 * tf.mul(tf.mul(rho, tf.reduce_prod(delta, 2)), tf.inv(tf.maximum(s, epsilon)))
+    z = tf.reduce_sum(tf.square(tf.mul(delta, tf.inv(sigma + epsilon))), 2) - \
+        2 * tf.mul(tf.mul(rho, tf.reduce_prod(delta, 2)), tf.inv(s + epsilon))
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
     # 0 < negRho <= 1
     negRho = (1 - tf.square(rho)) # * 0.5 + 0.5
@@ -77,7 +79,7 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     result = tf.verify_tensor_all_finite(result, "Result in bivariate normal not finite!")
     denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
     denom = tf.verify_tensor_all_finite(denom, "Denom in bivariate normal not finite!")
-    result = tf.mul(result, tf.inv(tf.maximum(denom, epsilon)))
+    result = tf.mul(result, tf.inv(denom + epsilon))
     result = tf.verify_tensor_all_finite(result, "Result2 in bivariate normal not finite!")
     return result
 
@@ -103,7 +105,7 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     # Adding additional error terms to prevent numerical instability for flat gradients for sigma and rho.
     #s = tf.abs(tf.reduce_prod(out_sigma, 2))
-    #result = result + (tf.square(out_rho) + tf.inv(tf.maximum(s, epsilon)) + tf.inv(tf.maximum(out_pi, epsilon)))
+    #result = result + (tf.square(out_rho) + tf.inv(tf.clip_by_value(s, epsilon, 1/epsilon)) + tf.inv(tf.clip_by_value(out_pi, epsilon, 1/epsilon)))
     result = tf.reduce_sum(result)
     result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")

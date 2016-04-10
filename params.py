@@ -21,7 +21,7 @@ parameters = {
     # x, y mixtures for 1 target. TODO: Add enabled flag.
     # Note: This must currently always be two because of bivariate gaussian mixture network
     'n_output': 2,
-    'lstm_clip': 100.0,
+    'lstm_clip': 1.0,
     # For the mixture density network, how many mixtures we use per variable.
     'n_mixtures': 3
 }

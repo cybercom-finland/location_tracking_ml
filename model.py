@@ -65,8 +65,8 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     # s >= 0
     s = tf.verify_tensor_all_finite(s, "S not finite!")
     # -1 <= rho <= 1
-    z = tf.reduce_sum(tf.square(tf.mul(delta, tf.inv(sigma + epsilon))), 2) - \
-        2 * tf.mul(tf.mul(rho, tf.reduce_prod(delta, 2)), tf.inv(s + epsilon))
+    z = tf.reduce_sum(tf.square(tf.mul(delta, tf.inv(tf.maximum(sigma, epsilon)))), 2) - \
+        2 * tf.mul(tf.mul(rho, tf.reduce_prod(delta, 2)), tf.inv(tf.maximum(s, epsilon)))
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
     # 0 < negRho <= 1
     negRho = (1 - tf.square(rho)) # * 0.5 + 0.5
@@ -77,7 +77,7 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     result = tf.verify_tensor_all_finite(result, "Result in bivariate normal not finite!")
     denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
     denom = tf.verify_tensor_all_finite(denom, "Denom in bivariate normal not finite!")
-    result = tf.mul(result, tf.inv(denom + epsilon))
+    result = tf.mul(result, tf.inv(tf.maximum(denom, epsilon)))
     result = tf.verify_tensor_all_finite(result, "Result2 in bivariate normal not finite!")
     return result
 
@@ -102,8 +102,8 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     result = tf.Print(result, [result], "Result3: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     # Adding additional error terms to prevent numerical instability for flat gradients for sigma and rho.
-    s = tf.abs(tf.reduce_prod(out_sigma, 2))
-    result = result + (tf.square(out_rho) + tf.inv(s + epsilon) + tf.inv(out_pi + epsilon))
+    #s = tf.abs(tf.reduce_prod(out_sigma, 2))
+    #result = result + (tf.square(out_rho) + tf.inv(tf.maximum(s, epsilon)) + tf.inv(tf.maximum(out_pi, epsilon)))
     result = tf.reduce_sum(result)
     result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")

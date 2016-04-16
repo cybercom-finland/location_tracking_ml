@@ -13,7 +13,7 @@ import random
 import json
 import itertools
 
-epsilon = 0.0001
+epsilon = 0.00001
 
 # The input shape is [batch_size, n_mixtures * 6]
 def splitMix(output, n_mixtures, batch_size):
@@ -37,18 +37,24 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
 
     # Softmaxing the weights so that they sum up to one.
-    out_pi = tf.nn.softmax(tf.log(tf.clip_by_value(tf.sigmoid(out_pi), 0.0001, 1.0)))
+    # out_pi = tf.nn.softmax(tf.log(tf.clip_by_value(tf.sigmoid(out_pi), 0.001, 1.0)))
     #out_pi = tf.mul(tf.ones([batch_size, 1]), [[1.0, 0, 0]])
-
-    # Always [-0.2, 0.2]
-    out_rho = tf.tanh(out_rho) * 0.2
+    ##max_pi = tf.reduce_max(out_pi, 1, keep_dims=True)
+    ##out_pi = tf.sub(out_pi, max_pi)
+    out_pi = tf.exp(out_pi)
+    normalize_pi = tf.inv(epsilon + tf.reduce_sum(out_pi, 1, keep_dims=True))
+    out_pi = tf.mul(normalize_pi, out_pi)
+    out_pi = tf.clip_by_value(out_pi, 0, 1)
+    
+    # Always [-0.1, 0.1]
+    out_rho = tf.tanh(out_rho)
     #out_rho = tf.zeros([batch_size, n_mixtures]) # Uncorrelated
 
-    # Making sigma always positive and between some sane values (0.018316, 54.598).
-    out_sigma = tf.exp(tf.tanh(out_sigma) * 4)
+    # Making sigma always positive and between some sane values.
+    out_sigma = tf.clip_by_value(tf.exp(out_sigma), 0, 50)
     #out_sigma = tf.ones([batch_size, n_mixtures, 2])
 
-    out_mu = tf.tanh(out_mu) * 100
+    # out_mu = out_mu * 100
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
 # Returns the probability density for bivariate gaussians.
@@ -62,52 +68,65 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     y = tf.verify_tensor_all_finite(y, "Y not finite!")
     delta = tf.sub(tf.tile(tf.expand_dims(y, 1), [1, n_mixtures, 1]), mu)
     delta = tf.Print(delta, [tf.reduce_mean(tf.abs(delta))], "Mean absolute delta: ")
+    delta = tf.Print(delta, [tf.reduce_max(delta)], "Max of delta: ")
+    delta = tf.Print(delta, [tf.reduce_min(delta)], "Min of delta: ")
     delta = tf.verify_tensor_all_finite(delta, "Delta not finite!")
     sigma = tf.verify_tensor_all_finite(sigma, "Sigma not finite!")
-    s = tf.abs(tf.reduce_prod(sigma, 2))
+    s = tf.reduce_prod(sigma, 2)
     # s >= 0
     s = tf.verify_tensor_all_finite(s, "S not finite!")
     # -1 <= rho <= 1
-    z = tf.reduce_sum(tf.square(tf.truediv(delta, sigma + epsilon)), 2) - \
+    
+    z = tf.reduce_sum(tf.square(tf.truediv(delta, sigma + epsilon)), 2) + epsilon - \
         2 * tf.truediv(tf.mul(rho, tf.reduce_prod(delta, 2)), s + epsilon)
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
+    z = tf.Print(z, [tf.reduce_max(z)], "Max of z: ")
+    z = tf.Print(z, [tf.reduce_min(z)], "Min of z: ")
     # 0 < negRho <= 1
-    negRho = tf.clip_by_value(1 - tf.square(rho), epsilon, 1.0) # * 0.5 + 0.5
+    rho = tf.verify_tensor_all_finite(rho, "rho in bivariate normal not finite!")
+    negRho = tf.clip_by_value(1 - tf.square(rho), epsilon, 1.0)
     negRho = tf.verify_tensor_all_finite(negRho, "negRho not finite!")
     #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
     # Note that if negRho goes near zero, or z goes really large, this explodes.
-    result = tf.exp(tf.mul(-z, tf.inv(2 * negRho)))
+    negRho = tf.verify_tensor_all_finite(negRho, "negRho in bivariate normal not finite!")
+    negRho = tf.Print(negRho, [tf.reduce_max(negRho)], "Max of negRho: ")
+    negRho = tf.Print(negRho, [tf.reduce_min(negRho)], "Min of negRho: ")
+    result = tf.exp(tf.truediv(-z, 2 * negRho + 0.01))
     result = tf.verify_tensor_all_finite(result, "Result in bivariate normal not finite!")
-    denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
+    denom = 2 * np.pi * tf.mul(s, tf.sqrt(epsilon + negRho))
     denom = tf.verify_tensor_all_finite(denom, "Denom in bivariate normal not finite!")
-    result = tf.mul(result, tf.inv(denom + epsilon))
+    denom = tf.Print(denom, [tf.reduce_max(denom)], "Max of denom: ")
+    denom = tf.Print(denom, [tf.reduce_min(denom)], "Min of denom: ")
+    result = tf.clip_by_value(tf.truediv(result, denom + epsilon), 0, 1)
     result = tf.verify_tensor_all_finite(result, "Result2 in bivariate normal not finite!")
     return result
 
 def mixture_loss(pred, y, n_mixtures, batch_size):
     pred = tf.verify_tensor_all_finite(pred, "Pred not finite!")
     out_pi, out_sigma, out_mu, out_rho = splitMix(pred, n_mixtures, batch_size)
-    tf.Assert(tf.greater(out_pi, 0), [out_pi])
-    tf.Assert(tf.greater(out_sigma, 0), [out_sigma])
-    tf.Assert(tf.less(out_rho, 1), [out_rho])
-    tf.Assert(tf.greater(out_rho, -1), [out_rho])
+    out_rho = tf.Print(out_rho, [tf.reduce_max(out_rho)], "Max of out_rho: ")
+    out_rho = tf.Print(out_rho, [tf.reduce_min(out_rho)], "Min of out_rho: ")
+    out_pi = tf.Print(out_pi, [tf.reduce_max(out_pi)], "Max of out_pi: ")
+    out_pi = tf.Print(out_pi, [tf.reduce_min(out_pi)], "Min of out_pi: ")
     result_binorm = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
     
     result_binorm = tf.verify_tensor_all_finite(result_binorm, "Result not finite1!")
+    result_binorm = tf.Print(result_binorm, [tf.reduce_max(result_binorm)], "Max of result_binorm: ")
+    out_pi = tf.Print(out_pi, [tf.reduce_max(out_pi)], "Max of out_pi: ")
     result_weighted = tf.mul(result_binorm, out_pi)
     result_weighted = tf.verify_tensor_all_finite(result_weighted, "Result not finite2!")
     result_raw = tf.reduce_sum(result_weighted, 1, keep_dims=True)
     result_raw = tf.Print(result_raw, [tf.reduce_sum(result_raw)], "Sum of weighted density. If zero, sigma is too small: ")
+    result_raw = tf.Print(result_raw, [tf.reduce_max(result_raw)], "Max of weighted density. If zero, sigma is too small: ")
     result_raw = tf.verify_tensor_all_finite(result_raw, "Result not finite3!")
-    result = -tf.log(tf.clip_by_value(result_raw, 0.0001, 1.0))
-    tf.Assert(tf.greater(result, 0), [result])
+    result = -tf.log(result_raw + epsilon)
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     # Adding additional error terms to prevent numerical instability for flat gradients.
     # If the optimizer is unsure and sees no gradient, increase sigma to widen the gaussians.
     s = tf.reduce_sum(tf.square(out_sigma), 2)
-    s = tf.Print(s, [tf.reduce_mean(tf.sqrt(s))], "Sigma. Make sure this increases if weighted density is zero: ")
+    result = tf.Print(result, [tf.reduce_mean(tf.sqrt(s))], "Sigma. Make sure this increases if weighted density is zero: ")
     
-    result = result + (1 - 100.0 * tf.minimum(tf.reduce_sum(result_raw), 0.01)) * tf.inv(s + epsilon)
+    # result = result + ((1 - 100.0 * tf.minimum(tf.reduce_sum(result_raw), 0.01)) * tf.inv(s + 0.5))
     result = tf.reduce_sum(result)
     # result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")
@@ -162,13 +181,11 @@ def RNN(parameters, input, model, initial_state):
     initial_state = tf.verify_tensor_all_finite(initial_state, "Initial state not finite!")
     # Note: States is shaped: batch_size x cell.state_size
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
-    outputs[-1] = tf.clip_by_value(outputs[-1], -parameters['lstm_clip'], parameters['lstm_clip'])
+    # outputs[-1] = tf.nn.relu(outputs[-1])
     outputs[-1] = tf.verify_tensor_all_finite(outputs[-1], "Outputs not finite!")
     # Only the last output is interesting for error back propagation and prediction.
     # Note that all batches are handled together here.
 
-    model['output_weights'] = tf.clip_by_value(model['output_weights'], -parameters['lstm_clip'], parameters['lstm_clip'])
-    model['output_bias'] = tf.clip_by_value(model['output_bias'], -parameters['lstm_clip'], parameters['lstm_clip'])
     model['output_weights'] = tf.verify_tensor_all_finite(model['output_weights'], "Output weights not finite!")
     model['output_bias'] = tf.verify_tensor_all_finite(model['output_bias'], "Output biases not finite!")
     raw_output = tf.matmul(outputs[-1], model['output_weights']) + model['output_bias']
@@ -218,6 +235,8 @@ def create(parameters):
     # tf Graph input
     x = tf.placeholder("float", shape=(None, parameters['n_steps'], parameters['n_input']), name='input')
     y = tf.placeholder("float", shape=(None, parameters['n_output']), name='expected_output')
+    x = tf.Print(x, [x], "X: ")
+    y = tf.Print(y, [y], "Y: ")
     lstm_state_size = np.sum(parameters['lstm_layers']) * 2
     # Note: Batch size is the first dimension in istate.
     istate = tf.placeholder("float", shape=(None, lstm_state_size), name='internal_state')
@@ -256,8 +275,8 @@ def create(parameters):
     
     pred = RNN(parameters, x, model, istate)
     
-    for variable in tf.trainable_variables():
-        variable = tf.verify_tensor_all_finite(variable, "Trainable variable not finite!")
+    tvars = tf.trainable_variables()
+    avars = tf.all_variables()
         
     # Define loss and optimizer
     # We will take 1 m as the arbitrary goal post to be happy with the error.
@@ -271,19 +290,31 @@ def create(parameters):
     # RNN/MultiRNNCell/Cell1/LSTMCell/W_F_diag
     # RNN/MultiRNNCell/Cell1/LSTMCell/W_0
     # RNN/MultiRNNCell/Cell1/LSTMCell/B
-        
+
+    for variable in avars:
+        variable.assign(tf.verify_tensor_all_finite(variable, "Variable not finite!"))
+
     cost = mixture_loss(pred[0], y, n_mixtures, batch_size)
 
+    for variable in avars:
+        cost = tf.Print(cost, [variable], "Variable: " + str(variable.name) + ": ")
+
     # The gradients go fast to infinity in certain points if not clipped.
-    #grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars), 1.0)
-    # tf.train.AdamOptimizer
-    optimizer = tf.train.AdamOptimizer(learning_rate = lr).minimize(cost) # Adam Optimizer
-    # train_op = optimizer.apply_gradients(zip(grads, tvars))
+    gradients = tf.gradients(cost, tvars)
+    for gradient in gradients:
+        cost = tf.Print(cost, [gradient], "Gradient: " + str(gradient.name) + ": ")
+    grads, _ = tf.clip_by_global_norm(gradients, 10.0)
+    for gradient in grads:
+        cost = tf.Print(cost, [gradient], "Gradient after clipping: " + str(gradient.name) + ": ")
+    optimizer = tf.train.AdamOptimizer(learning_rate = lr) # Adam Optimizer
+    #, epsilon=0.00001 
+
+    train_op = optimizer.apply_gradients(zip(grads, tvars))
      
     model['pred'] = pred[0]
     model['last_state'] = pred[1]
     model['cost'] = cost
-    model['optimizer'] = optimizer
+    model['optimizer'] = train_op
     
     return model
 
@@ -334,7 +365,7 @@ def create_generative(parameters):
     # cost = tf.reduce_mean(tf.sqrt(tf.nn.l2_loss(pred-y)) # L2 loss for regression
     # Evaluate model. This is the average error.
     # We will take 1 m as the arbitrary goal post to be happy with the error.
-    error = tf.reduce_mean(tf.sqrt(tf.reduce_sum(tf.pow(pred[0]-y, 2), 1)), 0)
+    error = tf.reduce_mean(tf.sqrt(0.001 + tf.reduce_sum(tf.pow(pred[0]-y, 2), 1)), 0)
     
     model['pred'] = pred
     model['last_state'] = pred[1]

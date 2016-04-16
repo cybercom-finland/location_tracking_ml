@@ -1,12 +1,12 @@
 # TODO: Make a run with different parameters and plot results
 parameters = {
     'learning_rate': 0.01,
-    'training_iters': 5000000,
+    'training_iters': 10000000,
     'display_step': int(100000 / 128 / 100) + 1,
     # Should not put too many display steps here, because accumulation of data takes memory. Doing ~100 print outs.
-    'decay': 1.0, #0.99995,
-    'input_layer': 24,
-    'lstm_layers': [8, 8],
+    'decay': 1.0, # 0.99, #0.99995,
+    'input_layer': 40,
+    'lstm_layers': [32, 24],
     # How many targets are there
     'n_targets': 22,
     'n_peers': 2,
@@ -19,7 +19,7 @@ parameters = {
     # x, y mixtures for 1 target. TODO: Add enabled flag.
     # Note: This must currently always be two because of bivariate gaussian mixture network
     'n_output': 2,
-    'lstm_clip': 10.0,
+    'lstm_clip': 5.0,
     # For the mixture density network, how many mixtures we use per variable.
     'n_mixtures': 3
 }

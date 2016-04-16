@@ -41,7 +41,6 @@ def train(parameters, model, trainData, testingData):
             step = 1
             while step * parameters['batch_size'] < parameters['training_iters']:
                 parameters['learning_rate'] = parameters['learning_rate'] * parameters['decay']
-                tf.assign(model['lr'], parameters['learning_rate'])
                 (batch_xsp, batch_ysp) = manage_data.getNextTrainingBatchSequences(trainingData, step - 1,
                     parameters['batch_size'], parameters['n_steps'], parameters['n_peers'])
                 
@@ -52,7 +51,9 @@ def train(parameters, model, trainData, testingData):
                 # Fit training using batch data
                 sess.run(model['optimizer'], feed_dict={model['x']: batch_xs, model['y']: batch_ys,
                     model['istate']: np.asarray(model['rnn_cell'].zero_state(parameters['batch_size'],
-                                                                             tf.float32).eval())})
+                                                                             tf.float32).eval()),
+                                                        model['lr']: parameters['learning_rate']
+                                                        })
                 if step % parameters['display_step'] == 0:
                     
                     testData = manage_data.makeInputForTargetInd(testingData, np.random.randint(0, 22))

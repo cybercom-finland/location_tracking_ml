@@ -38,11 +38,11 @@ def joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size):
 def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
     # Softmaxing the weights so that they sum up to one.
-    out_pi = tf.nn.relu(out_pi) + 0.001
+    out_pi = tf.nn.relu(out_pi) + epsilon
     out_pi = tf.div(out_pi, tf.maximum(tf.reduce_sum(out_pi, 1, keep_dims=True), epsilon))
     # Always [-0.1, 0.1]
-    out_rho = tf.clip_by_value(out_rho, -0.10, 0.10)
-    out_sigma = tf.maximum(tf.square(out_sigma), 0.5)
+    out_rho = tf.clip_by_value(out_rho, -0.30, 0.30)
+    out_sigma = tf.maximum(tf.square(out_sigma), 0.3)
     #out_sigma = tf.abs(out_sigma) + 0.1
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
@@ -129,22 +129,6 @@ def mixture_loss(pred, y, n_mixtures, batch_size):
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")
     return result
 
-def get_pi_idx(x, pdf):
-    N = pdf.size
-    accumulate = 0
-    for i in range(0, N):
-        accumulate += pdf[i]
-        if (accumulate >= x):
-            return i
-    print 'error with sampling ensemble'
-    return -1
-
-def sample_gaussian_2d(mu1, mu2, s1, s2, rho):
-    mean = [mu1, mu2]
-    cov = [[s1*s1, rho*s1*s2], [rho*s1*s2, s2*s2]]
-    x = np.random.multivariate_normal(mean, cov, 1)
-    return x[0][0], x[0][1]
-
   # Returns the LSTM stack created based on the parameters.
 # Processes several batches at once.
 # Input shape is: (parameters['batch_size'], parameters['n_steps'], parameters['n_input'])
@@ -227,7 +211,7 @@ def RNN_generative(parameters, input, model, initial_state):
     # Input should be a tensor of [batch_size, depth]
     # State should be a tensor of [batch_size, depth]
     outputs, states = model['rnn_cell'](input, initial_state)
-    raw_output = tf.matmul(outputs, model['output_weights']) + model['output_bias']
+    output = tf.matmul(outputs, model['output_weights']) + model['output_bias']
     # TODO: Sample distribution here: First select the mixture based on weights, then sample normal.
     # Tanh for the delta components
     #output = tf.concat(1, [raw_output[:,0:2], tf.tanh(raw_output[:,2:4])])
@@ -248,8 +232,8 @@ def create(parameters):
     istate = tf.placeholder(tf.float32, shape=(None, lstm_state_size), name='internal_state')
     lr = tf.placeholder(tf.float32, name='learning_rate')
 
-    # The target to track itself and its peers, each with x, y and velocity x and y.
-    input_size = (parameters['n_peers'] + 1) * 4
+    # The target to track itself and its peers, each with x, y ## and velocity x and y.
+    input_size = (parameters['n_peers'] + 1) * 2
     inputToRnn = parameters['input_layer']
     if (parameters['input_layer'] == None):
         inputToRnn = parameters['n_input']
@@ -338,41 +322,50 @@ def create(parameters):
     return model
 
 def create_generative(parameters):
-    print('Creating the generative neural network model.')
+    print('Creating the neural network model.')
     
     # tf Graph input
-    # TODO: Technically we could run all the modules in the bank inside one batch here.
     x = tf.placeholder(tf.float32, shape=(1, parameters['n_input']), name='input')
+    x = tf.verify_tensor_all_finite(x, "X not finite!")
     y = tf.placeholder(tf.float32, shape=(1, parameters['n_output']), name='expected_output')
+    y = tf.verify_tensor_all_finite(y, "Y not finite!")
+    x = tf.Print(x, [x], "X: ")
+    y = tf.Print(y, [y], "Y: ")
     lstm_state_size = np.sum(parameters['lstm_layers']) * 2
     # Note: Batch size is the first dimension in istate.
     istate = tf.placeholder(tf.float32, shape=(None, lstm_state_size), name='internal_state')
+    lr = tf.placeholder(tf.float32, name='learning_rate')
 
-    # The target to track itself and its peers, each with x, y and velocity x and y.
-    input_size = (parameters['n_peers'] + 1) * 4
+    # The target to track itself and its peers, each with x, y ## and velocity x and y.
+    input_size = (parameters['n_peers'] + 1) * 2
     inputToRnn = parameters['input_layer']
     if (parameters['input_layer'] == None):
         inputToRnn = parameters['n_input']
 
     cells = [rnn_cell.LSTMCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn,
-                               cell_clip=parameters['lstm_clip'], use_peepholes=True) for i,l in enumerate(parameters['lstm_layers'])] 
-    # TODO: GRUCell support here.
+                               #cell_clip=parameters['lstm_clip'],
+                               use_peepholes=True) for i,l in enumerate(parameters['lstm_layers'])] 
+    # TODO: GRUCell cupport here.
     # cells = [rnn_cell.GRUCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn) for i,l in enumerate(parameters['lstm_layers'])]
     model = {
+        'input_weights': tf.Variable(tf.random_normal(
+            [input_size, parameters['input_layer']]), name='input_weights'),
+        'input_bias': tf.Variable(tf.random_normal([parameters['input_layer']]), name='input_bias'),
         'output_weights': tf.Variable(tf.random_normal([parameters['lstm_layers'][-1],
-                                                        parameters['n_output'] * parameters['n_mixtures']]),
+                                                        # 6 = 2 sigma, 2 mean, weight, rho
+                                                        parameters['n_mixtures'] * 6]),
                                       name='output_weights'),
-        'output_bias': tf.Variable(tf.random_normal([parameters['n_output'] * parameters['n_mixtures']]), name='output_bias'),
+        # We need to put at least the standard deviation output biases to about 5 to prevent zeros and infinities.
+        # , mean = 5.0, stddev = 3.0
+        'output_bias': tf.Variable(tf.random_normal([parameters['n_mixtures'] * 6]),
+                                   name='output_bias'),
         'rnn_cell': rnn_cell.MultiRNNCell(cells),
+        'lr': lr,
         'x': x,
         'y': y,
+        'keep_prob': tf.placeholder(tf.float32),
         'istate': istate
     }
-    
-    if (parameters['input_layer'] <> None):
-        model['input_weights'] = tf.Variable(tf.random_normal(
-            [input_size, parameters['input_layer']]), name='input_weights')
-        model['input_bias'] = tf.Variable(tf.random_normal([parameters['input_layer']]), name='input_bias')
 
     # The next variables need to be remapped, because we don't have RNN context anymore:
     # RNN/MultiRNNCell/Cell0/LSTMCell/ -> MultiRNNCell/Cell0/LSTMCell/
@@ -385,9 +378,7 @@ def create_generative(parameters):
     # Evaluate model. This is the average error.
     # We will take 1 m as the arbitrary goal post to be happy with the error.
     #error = tf.reduce_mean(tf.sqrt(0.001 + tf.reduce_sum(tf.pow(pred[0]-y, 2), 1)), 0)
-    
-    model['pred'] = pred
+    model['pred'] = pred[0]
     model['last_state'] = pred[1]
-    model['error'] = error
 
     return model

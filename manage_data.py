@@ -63,7 +63,8 @@ def getNextTrainingBatch(data, step, n_steps, n_peers):
     targetY = Ytrack
     #targetY = np.concatenate((Ytrack, VYtrack), axis=0)
     
-    batch_input = np.concatenate((Xtrack, Vtrack), axis=2)
+    #batch_input = np.concatenate((Xtrack, Vtrack), axis=2)
+    batch_input = Xtrack
     
     # We will select n_peers random peers and leave out the rest.
     newPeerIndex = 1

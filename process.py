@@ -36,4 +36,4 @@ export_to_octave.save('training.mat', 'training', trainData)
 
 network_model = model.create(parameters)
 
-train.train(parameters, network_model, trainData, testData, 'soccer') # 'soccer-model')
+train.train(parameters, network_model, trainData, testData, None) # 'soccer-model')

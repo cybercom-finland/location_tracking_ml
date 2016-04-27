@@ -218,12 +218,14 @@ Ideas and Notions
    it leads to the predicted position error accumulation so that the player drifts out of the field.
  * When coding output by Mixture Density Networks, and the domain for the outputs is large compared to variances, there
    are a few things to take into account:
-   * Sigma must have a small loss term (decay), to make sure that when the gaussian gradients are zero (the variances
-     are too small, and the means are off) the optimizer increases the sigma, that is, the variances, to widen the gaussians,
-     and to subsequently make it possible to find the gradient.
    * Rho must be prevented from going too near -1 and 1, because that causes an effective variance towards a certain direction
      to be near zero, regardless of sigma, and that means again that the optimizer doesn't see a gradient for large
      errors in that direction.
+   * For a single-precision floating point, you can at most get to 24 sigma before reaching zero probability flat-land.
+     * https://www.wolframalpha.com/input/?i=24+sigma
+   * For a sigma of half a meter confidence, this means that if the real value is 12 meters away from the estimated
+     position, the zero will occur, and the optimizer does not have a meaningful gradient to follow. Large absolute
+     rho makes this worse.
 
 Copyright / License
 ===================

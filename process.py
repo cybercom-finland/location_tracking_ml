@@ -1,5 +1,7 @@
 #!/usr/bin/python -u
 
+import traceback
+
 import matplotlib
 matplotlib.use('Agg')
 import pylab
@@ -34,4 +36,4 @@ export_to_octave.save('training.mat', 'training', trainData)
 
 network_model = model.create(parameters)
 
-train.train(parameters, network_model, trainData, testData)
+train.train(parameters, network_model, trainData, testData, 'soccer') # 'soccer-model')

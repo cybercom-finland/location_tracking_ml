@@ -13,11 +13,14 @@ import numpy as np
 import random
 import json
 import itertools
+import math
 
 import manage_data
 import export_to_octave
 
-def train(parameters, model, trainData, testingData, start):
+import time
+
+def train(parameters, model, trainData, testingData, start, minutes):
     print('Launching training.')
 #    accuracy_summary = tf.scalar_summary("cost", model["cost"])
 #    merged = tf.merge_all_summaries()
@@ -27,6 +30,7 @@ def train(parameters, model, trainData, testingData, start):
     # config=tf.ConfigProto(log_device_placement=True)
     config = tf.ConfigProto()
     config.gpu_options.allocator_type = 'BFC'
+    start_time = time.time()
     with tf.Session() as sess:
         if start:
             saver.restore(sess, start)
@@ -39,20 +43,25 @@ def train(parameters, model, trainData, testingData, start):
 #        writer = tf.train.SummaryWriter("logs", sess.graph)
         # Keep training until reach max iterations for each target in the material
     
-        # FIXME: This is still work in progress....
         iter = 1
         
         step = 1
         trainErrorTrend = []
         testErrorTrend = []
-        while step * parameters['batch_size'] < parameters['training_iters']:
+        now = time.time()
+        # Training for a specific number of minutes
+        last_losses = []
+        last_loss = None
+        while now - start_time < 60 * minutes:
             targetInd = random.randint(0, 21)
             print('Creating input data for the target: ' + str(targetInd))
+            if last_loss:
+                print "Time elapsed: ", now - start_time, ", last_loss: ", last_loss / parameters['batch_size']
             # Choosing the target to track
             trainingData = manage_data.makeInputForTargetInd(trainData, targetInd)
             #export_to_octave.save('training_data_d.mat', 'trainingData', trainingData)
         
-            parameters['learning_rate'] = parameters['learning_rate'] * parameters['decay']
+            # parameters['learning_rate'] = parameters['learning_rate'] * parameters['decay']
             (batch_xsp, batch_ysp) = manage_data.getNextTrainingBatchSequences(trainingData, step - 1,
                 parameters['batch_size'], parameters['n_steps'], parameters['n_peers'])
             
@@ -148,7 +157,14 @@ def train(parameters, model, trainData, testingData, start):
                                                     model['keep_prob']: parameters['keep_prob']})
                 ##writer.add_summary(summary_str, iter)
                 testErrorTrend.append(testError)
+                last_losses.append(testError)
+                # Averaging the 3 last testing losses.
+                if (len(last_losses) > 3):
+                    last_losses.pop(0)
+                last_loss = math.fsum(last_losses) / len(last_losses)
                 print "Testing Error:", testError
+                print "Testing Error Normalized:", testError / parameters['batch_size']
+                print "Last loss:", last_loss / parameters['batch_size']
                 export_to_octave.save('train_error.mat', 'train_error', trainErrorTrend)
                 export_to_octave.save('test_error.mat', 'test_error', testErrorTrend)
                 #export_to_octave.save('test_prediction.mat', 'test_prediction', prediction)
@@ -167,6 +183,10 @@ def train(parameters, model, trainData, testingData, start):
 
             iter += 1
             step += 1
+            now = time.time()
         saver.save(sess, 'soccer-model', global_step=iter)
         print "Optimization Finished!"
-        # Calculate accuracy for the test data
+        
+        # Returning the last loss value for hyper parameter search
+        return last_loss
+    

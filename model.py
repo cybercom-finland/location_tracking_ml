@@ -19,10 +19,10 @@ e = 1e-80
 
 # The input shape is [batch_size, n_mixtures * 6]
 def splitMix(output, n_mixtures, batch_size):
-    out_pi = output[0:batch_size, 0:n_mixtures]
-    out_sigma = tf.reshape(output[0:batch_size, n_mixtures: n_mixtures * 3], [batch_size, n_mixtures, 2])
-    out_mu = tf.reshape(output[0:batch_size, n_mixtures * 3 : n_mixtures * 5], [batch_size, n_mixtures, 2])
-    out_rho = output[0:batch_size, n_mixtures * 5 : n_mixtures * 6]
+    out_pi = tf.slice(output, [0, 0], [batch_size, n_mixtures])
+    out_sigma = tf.reshape(tf.slice(output, [0, n_mixtures], [batch_size, n_mixtures * 2]), [batch_size, n_mixtures, 2])
+    out_mu = tf.reshape(tf.slice(output, [0, n_mixtures * 3], [batch_size, n_mixtures * 2]), [batch_size, n_mixtures, 2])
+    out_rho = tf.slice(output, [0, n_mixtures * 5], [batch_size, n_mixtures])
     return out_pi, out_sigma, out_mu, out_rho
 
 # The result shape is [batch_size, n_mixtures * 6]
@@ -38,11 +38,10 @@ def joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size):
 def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
     # Softmaxing the weights so that they sum up to one.
-    out_pi = tf.nn.relu(out_pi) + epsilon
-    out_pi = tf.div(out_pi, tf.maximum(tf.reduce_sum(out_pi, 1, keep_dims=True), epsilon))
+    out_pi = tf.nn.softmax(out_pi)
     # Always [-0.1, 0.1]
-    out_rho = tf.clip_by_value(out_rho, -0.30, 0.30)
-    out_sigma = tf.maximum(tf.square(out_sigma), 0.3)
+    out_rho = tf.tanh(out_rho)  #tf.clip_by_value(out_rho, -0.00, 0.00)
+    out_sigma = tf.exp(out_sigma) #tf.ones([batch_size, n_mixtures, 2]) * 5.0 # 
     #out_sigma = tf.abs(out_sigma) + 0.1
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
@@ -57,8 +56,8 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     y = tf.verify_tensor_all_finite(y, "Y not finite!")
     delta = tf.sub(tf.tile(tf.expand_dims(y, 1), [1, n_mixtures, 1]), mu)
     delta = tf.Print(delta, [tf.reduce_mean(tf.abs(delta))], "Mean absolute delta: ")
-    delta = tf.Print(delta, [tf.reduce_max(delta)], "Max of delta: ")
-    delta = tf.Print(delta, [tf.reduce_min(delta)], "Min of delta: ")
+    # delta = tf.Print(delta, [tf.reduce_max(delta)], "Max of delta: ")
+    # delta = tf.Print(delta, [tf.reduce_min(delta)], "Min of delta: ")
     delta = tf.verify_tensor_all_finite(delta, "Delta not finite!")
     sigma = tf.verify_tensor_all_finite(sigma, "Sigma not finite!")
     s = tf.reduce_prod(sigma, 2)
@@ -71,13 +70,13 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     #logsigma = tf.log(sigma)
     #sign = tf.sign((tf.sign(tf.reduce_prod(delta, 2)) + 0.5) * (tf.sign(rho) + 0.5))
     
-    z = tf.reduce_sum(tf.square(tf.div(delta, sigma + epsilon)), 2) - \
+    z = tf.reduce_sum(tf.square(tf.div(delta, sigma + epsilon) + epsilon), 2) - \
         2 * tf.div(tf.mul(rho, tf.reduce_prod(delta, 2)), s + epsilon)
     
     # z = tf.reduce_sum(tf.square(tf.div(delta, sigma + epsilon)), 2) - \
     #     2 * tf.div(tf.mul(rho, tf.reduce_prod(delta, 2)), s + epsilon)
-    z = tf.Print(z, [tf.reduce_max(z)], "Max of z: ")
-    z = tf.Print(z, [tf.reduce_min(z)], "Min of z: ")
+    # z = tf.Print(z, [tf.reduce_max(z)], "Max of z: ")
+    # z = tf.Print(z, [tf.reduce_min(z)], "Min of z: ")
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
     # 0 < negRho <= 1
     rho = tf.verify_tensor_all_finite(rho, "rho in bivariate normal not finite!")
@@ -86,42 +85,43 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
     # Note that if negRho goes near zero, or z goes really large, this explodes.
     negRho = tf.verify_tensor_all_finite(negRho, "negRho in bivariate normal not finite!")
-    negRho = tf.Print(negRho, [tf.reduce_max(negRho)], "Max of negRho: ")
-    negRho = tf.Print(negRho, [tf.reduce_min(negRho)], "Min of negRho: ")
-    result = tf.clip_by_value(tf.exp(tf.div(-z, 2 * negRho + epsilon)), 1.0e-8, 1.0e8)
+    # negRho = tf.Print(negRho, [tf.reduce_max(negRho)], "Max of negRho: ")
+    # negRho = tf.Print(negRho, [tf.reduce_min(negRho)], "Min of negRho: ")
+    result = tf.clip_by_value(tf.exp(tf.div(-z, 2 * negRho)), 1.0e-8, 1.0e8)
     result = tf.verify_tensor_all_finite(result, "Result in bivariate normal not finite!")
-    denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho + epsilon))
+    denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
     denom = tf.verify_tensor_all_finite(denom, "Denom in bivariate normal not finite!")
-    denom = tf.Print(denom, [tf.reduce_max(denom)], "Max of denom: ")
-    denom = tf.Print(denom, [tf.reduce_min(denom)], "Min of denom: ")
+    # denom = tf.Print(denom, [tf.reduce_max(denom)], "Max of denom: ")
+    # denom = tf.Print(denom, [tf.reduce_min(denom)], "Min of denom: ")
     result = tf.clip_by_value(tf.div(result, denom + epsilon), epsilon, 1.0)
     result = tf.verify_tensor_all_finite(result, "Result2 in bivariate normal not finite!")
-    return result
+    return result, delta
 
 def mixture_loss(pred, y, n_mixtures, batch_size):
     pred = tf.verify_tensor_all_finite(pred, "Pred not finite!")
     out_pi, out_sigma, out_mu, out_rho = splitMix(pred, n_mixtures, batch_size)
-    out_rho = tf.Print(out_rho, [tf.reduce_max(out_rho)], "Max of out_rho: ")
-    out_rho = tf.Print(out_rho, [tf.reduce_min(out_rho)], "Min of out_rho: ")
-    out_pi = tf.Print(out_pi, [tf.reduce_max(out_pi)], "Max of out_pi: ")
-    out_pi = tf.Print(out_pi, [tf.reduce_min(out_pi)], "Min of out_pi: ")
-    result_binorm = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
+    # out_rho = tf.Print(out_rho, [tf.reduce_max(out_rho)], "Max of out_rho: ")
+    # out_rho = tf.Print(out_rho, [tf.reduce_min(out_rho)], "Min of out_rho: ")
+    # out_pi = tf.Print(out_pi, [tf.reduce_max(out_pi)], "Max of out_pi: ")
+    # out_pi = tf.Print(out_pi, [tf.reduce_min(out_pi)], "Min of out_pi: ")
+    result_binorm, result_delta = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
     
     result_binorm = tf.verify_tensor_all_finite(result_binorm, "Result not finite1!")
-    result_binorm = tf.Print(result_binorm, [tf.reduce_max(result_binorm)], "Max of result_binorm: ")
-    out_pi = tf.Print(out_pi, [tf.reduce_max(out_pi)], "Max of out_pi: ")
+    # result_binorm = tf.Print(result_binorm, [tf.reduce_max(result_binorm)], "Max of result_binorm: ")
+    # out_pi = tf.Print(out_pi, [tf.reduce_max(out_pi)], "Max of out_pi: ")
     result_weighted = tf.mul(result_binorm, out_pi)
+    delta_weighted = tf.mul(tf.reduce_sum(tf.square(result_delta), 2), out_pi)
     result_weighted = tf.verify_tensor_all_finite(result_weighted, "Result not finite2!")
     result_raw = tf.reduce_sum(result_weighted + epsilon, 1, keep_dims=True)
     result_raw = tf.Print(result_raw, [tf.reduce_sum(result_raw)], "Sum of weighted density. If zero, sigma is too small: ")
     result_raw = tf.Print(result_raw, [tf.reduce_max(result_raw)], "Max of weighted density. If zero, sigma is too small: ")
     result_raw = tf.verify_tensor_all_finite(result_raw, "Result not finite3!")
-    result = -tf.log(result_raw + e)
+    result = -tf.log(result_raw + e) + tf.reduce_mean(delta_weighted)
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
     # Adding additional error terms to prevent numerical instability for flat gradients.
     # If the optimizer is unsure and sees no gradient, increase sigma to widen the gaussians.
     s = tf.reduce_sum(tf.square(out_sigma), 2)
-    result = tf.Print(result, [tf.reduce_mean(tf.sqrt(s))], "Sigma. Make sure this increases if weighted density is zero: ")
+    result = tf.Print(result, [tf.reduce_mean(tf.sqrt(s + 0.1))], "Sigma. Make sure this increases if weighted density is zero: ")
     
     # result = result + ((1 - 100.0 * tf.minimum(tf.reduce_sum(result_raw), 0.01)) * tf.inv(s + 0.5))
     result = tf.reduce_sum(result)
@@ -147,7 +147,7 @@ def RNN(parameters, input, model, initial_state):
     # Reshape to prepare input to the linear layer
     input = tf.reshape(input, [-1, parameters['n_input']]) # (n_steps*batch_size, n_input)
     input = tf.verify_tensor_all_finite(input, "Input not finite3!")
-    input = tf.Print(input, [input], "Input: ")
+    # input = tf.Print(input, [input], "Input: ")
     
     # 1. layer, linear activation for each batch and step.
     if (model.has_key('input_weights')):
@@ -167,7 +167,7 @@ def RNN(parameters, input, model, initial_state):
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
     # outputs[-1] = tf.nn.relu(outputs[-1])
     lastOutput = tf.verify_tensor_all_finite(outputs[-1], "Outputs not finite!")
-    lastOutput = tf.nn.dropout(lastOutput, model['keep_prob'])
+    # lastOutput = tf.nn.dropout(lastOutput, model['keep_prob'])
     # Only the last output is interesting for error back propagation and prediction.
     # Note that all batches are handled together here.
 
@@ -219,7 +219,7 @@ def RNN_generative(parameters, input, model, initial_state):
 
 def create(parameters):
     print('Creating the neural network model.')
-    
+    tf.reset_default_graph()
     # tf Graph input
     x = tf.placeholder(tf.float32, shape=(None, parameters['n_steps'], parameters['n_input']), name='input')
     x = tf.verify_tensor_all_finite(x, "X not finite!")
@@ -309,7 +309,7 @@ def create(parameters):
     grads, _ = tf.clip_by_global_norm(gradients, parameters['clip_gradients'])
     #for gradient in grads:
     #    gradient = tf.Print(gradient, [gradient], "Gradient after clipping: " + str(gradient.name) + ": ")
-    optimizer = tf.train.AdamOptimizer(learning_rate = lr, epsilon=1e-6) # Adam Optimizer
+    optimizer = tf.train.AdamOptimizer(learning_rate = parameters['learning_rate'], epsilon = 1e-6) # Adam Optimizer
     #, epsilon=0.00001 
 
     train_op = optimizer.apply_gradients(zip(grads, tvars))
@@ -324,6 +324,7 @@ def create(parameters):
 def create_generative(parameters):
     print('Creating the neural network model.')
     
+    tf.reset_default_graph()
     # tf Graph input
     x = tf.placeholder(tf.float32, shape=(1, parameters['n_input']), name='input')
     x = tf.verify_tensor_all_finite(x, "X not finite!")

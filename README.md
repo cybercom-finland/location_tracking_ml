@@ -98,33 +98,20 @@ The locations are coded as simple x and y floating point values, as in the origi
 Each player has a pair of input neurons corresponding to the current position, and the delta from the last position
 before that for both coordinates x and y.
 
-The value signifying missing values is replaced by a special on-off neuron. This neuron is off when either of the input
-values is the placeholder value signifying missing data. When the neuron is off, both x and y neurons respectively are
-zeroed.
+The output is coded as a mixed density network with two probability distributions mixed together with weights.
 
-Two peers are chosen randomly to the input.
-For one module, that is 1 target and 2 peers, this makes 3 x (2 x 2 + 1) = 15 input neurons
-for each module, of which 3 are on-off valued, and the rest are continuous valued.
+One peer is chosen randomly to the input.
+For one module, that is 1 target and 1 peer, this makes 2 x (2 x 2 + 2) = 12 continuous valued input neurons
+for each module.
 The input data is the similar for each module, but the target to predict is shifted to the first neurons.
 
 The output neuron coding is identical to the input neuron coding but only has the predicted next x and y position for
 the target tracked by the module.
 
-For these continuous valued outputs a distance loss function is used.
-
-The enabled flag per module can be predicted also, with the loss function chosen accordingly (so that the predicted location
-does not matter if the prediction is disabled, but so that the associated loss for incorrectly predicting the enabled
-flag is high).
-
-In generation mode the output can be fed back to the inputs by calculating the deltas.
-
-Traditionally Mixture Density Networks have been used with LSTMs and real-valued outputs. These would probably produce
-somewhat better output, but for testing purposes trivial output coding works ok.
-
 Results
 =======
 
-For the following parameters:
+For the following parameters and trivial output coding, no mixed density network, only estimating the position as-is:
 
 {'n_input': 12, 'learning_rate': 0.01, 'batch_size': 16, 'training_iters': 10000, 'lstm_layers': [16], 'n_steps': 5, 'n_output': 2, 'decay': 0.99995, 'input_layer': None, 'display_step': 10, 'n_targets': 23, 'n_peers': 2, 'lstm_clip': 10.0}
 
@@ -149,6 +136,9 @@ Generative Mode
 ===============
 
 The generation is done by feeding positions of three peers one by one to the bank of three LSTMs, and iterating.
+
+The first results were from generating with the trivial network, without mixed density networks, and with two peers.
+
 There is no limit on the number of LSTM modules to use, but there should be at least three, because the module
 was trained with two peer targets.
 
@@ -157,7 +147,11 @@ some noise to the sequence, to generate varying traces. This is mathematically v
 of the LSTM to represent the expected value of some distribution. Other distribution parameters could be estimated
 by testing the system against the test set data.
 
-The first generation was run for predictions of position deltas, instead of absolute positions.
+The first generation was run for a trivial network, no mixed density network, for predictions of position deltas, instead of absolute positions.
+
+All the figures are plotted with Octave:
+`load('traces.mat'); plot(traces(1,:,1), traces(1,:,2), traces(2,:,1), traces(2,:,2), traces(3,:,1), traces(3,:,2))`
+
 The results for the first test generation, for the model learned in one pretty successful run:
 
 ![generated_tracks_for_three_players.png](generated_tracks_for_three_players.png)
@@ -174,7 +168,7 @@ It would seem the network cares too little about the general position on the fie
 that the positions differ somewhat little from each other. Although for all fairness it should be noted that
 in the training data also some players did run out of the field.
 
-Running the network in a mode where it predicts the positions rather than deltas leads to a more bounded result, although
+Running the trivial network in a mode where it predicts the positions rather than deltas leads to a more bounded result, although
 the tracks are not as clean. Test set error is quite high, i.e. the parameters have a high variance. Still needs some tuning.
 
 A representative result given below:
@@ -201,6 +195,18 @@ overfitting. Parameters need to be tuned more.
 ![generated_tracks_for_three_players_3_zoomed.png](generated_tracks_for_three_players_3_zoomed.png)
 
 Same as a video (shortened a bit, because the end does not change): [https://youtu.be/lmNsdmsUtwI](https://youtu.be/lmNsdmsUtwI)
+
+Results with Mixed Density Networks
+
+The next is the results for one peer, with the following parameters:
+`{'n_mixtures': 2, 'n_input': 4, 'learning_rate': 0.005, 'batch_size': 40, 'lstm_layers': [24, 18], 'n_steps': 6, 'n_output': 2, 'clip_gradients': 100.0, 'input_layer': 30, 'display_step': 40, 'n_targets': 22, 'n_peers': 1, 'lstm_clip': 200.0, 'keep_prob': 1.0}`
+
+`pos = np.asarray([[0.0, 0.0], [0.1, 1.3], [10.1, -1.3]])`
+
+![generated_tracks_for_three_players_mixed_density.png](generated_tracks_for_three_players_mixed_density.png)
+
+It is clear that as the players are treated identically, they converge into the same local minimum. Perhaps inputting one
+arbitrarily controlled player into the system would change the behavior.
 
 Usage
 =====

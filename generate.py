@@ -28,10 +28,7 @@ generative_model = model.create_generative(parameters)
 
 saver = tf.train.Saver()
 
-# TODO: Work in progress...
-
 # Arbitrary starting positions.
-delta = np.asarray([[0.15, 0.0], [0.0, -0.1], [-0.1, 0.1]])
 pos = np.asarray([[0.0, 0.0], [0.1, 1.3], [10.1, -1.3]])
 
 # For outputting to plot and Octave
@@ -71,7 +68,6 @@ with tf.Session() as sess:
         next_delta = []
         for mod in range(3):
             posForTarget = np.copy(pos)
-            #deltaForTarget = np.copy(delta)
             # Switching the target first.
             posForTarget[[mod, 0], :] = posForTarget[[0, mod], :]
             input = np.asarray(posForTarget)[0:2, :]
@@ -83,16 +79,7 @@ with tf.Session() as sess:
             prediction = sample_gaussian_2d(pred[0,6 + idx], pred[0,8 + idx], pred[0,2 + idx], pred[0,4 + idx],
                                        pred[0,10 + idx])
             traces[mod].append(prediction)
-            # The predictions are positions and deltas.
-            # They will have a difference, which will be used as random noise to the absolute location.
-            # The standard deviation of the noise will be at least 0.05.
-            # As the network estimates both the delta and the absolute position, we can see the difference
-            # and use that metric of uncertainty as a basis for the noise.
-            #error_xv = np.random.normal(0, sigma_x)
-            #error_yv = np.random.normal(0, sigma_y)
             next_pos.append(prediction)
-            #next_delta.append(prediction[0,2:4] + [error_xv, error_yv])
         pos = np.asarray(next_pos)
-        delta = np.asarray(next_delta)
         export_to_octave.save('traces.mat', 'traces', np.asarray(traces))
         print 'time: ' + str(time)

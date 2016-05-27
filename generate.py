@@ -58,7 +58,7 @@ def sample_gaussian_2d(mu1, mu2, s1, s2, rho):
 # do some work with the model.
 with tf.Session() as sess:
     # Restore variables from disk.
-    saver.restore(sess, "soccer")
+    saver.restore(sess, "soccer-model")
     print("Model restored.")
     # Internal states for the three LSTM modules.
     bank = [np.asarray(generative_model['rnn_cell'].zero_state(1, tf.float32).eval()),

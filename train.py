@@ -28,20 +28,16 @@ def train(parameters, model, trainData, testingData, start, minutes):
     saver = tf.train.Saver(tf.all_variables())
     # Launch the graph
     # config=tf.ConfigProto(log_device_placement=True)
-    config = tf.ConfigProto()
-    config.gpu_options.allocator_type = 'BFC'
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.80, allocator_type = 'BFC')
+    config = tf.ConfigProto(gpu_options=gpu_options)
     start_time = time.time()
-    with tf.Session() as sess:
+    with tf.Session(config=config) as sess:
         if start:
             saver.restore(sess, start)
         else:
             sess.run(init)
-    #    pred = (tf.Print(pred[0], [tf.reduce_min(tf.abs(variable))], "Var " + variable.name + " zero dist: "), pred[1])
-    #    pred = (tf.Print(pred[0], [tf.reduce_max(variable)], "Var " + variable.name + " max: "), pred[1])
-    #    pred = (tf.Print(pred[0], [tf.reduce_min(variable)], "Var " + variable.name + " min: "), pred[1])
         
 #        writer = tf.train.SummaryWriter("logs", sess.graph)
-        # Keep training until reach max iterations for each target in the material
     
         iter = 1
         
@@ -129,7 +125,7 @@ def train(parameters, model, trainData, testingData, start, minutes):
                 # Calculate batch loss
                 n_mixtures = parameters['n_mixtures']
                 #export_to_octave.save('prediction.mat', 'prediction', prediction)
-                # Printing out mus.
+                # Printing out the weights and the predictions.
                 print "Weights: " + str(prediction[:, 0:n_mixtures])
                 print "Prediction sigmas: " + str(prediction[:, n_mixtures : n_mixtures * 3])
                 print "Prediction mus: " + str(prediction[:, n_mixtures * 3 : n_mixtures * 5])
@@ -158,10 +154,10 @@ def train(parameters, model, trainData, testingData, start, minutes):
                 ##writer.add_summary(summary_str, iter)
                 testErrorTrend.append(testError)
                 last_losses.append(testError)
-                # Averaging the 3 last testing losses.
-                if (len(last_losses) > 3):
+                # Taking the minimum of the 10 last testing losses.
+                if (len(last_losses) > 10):
                     last_losses.pop(0)
-                last_loss = math.fsum(last_losses) / len(last_losses)
+                last_loss = min(last_losses)
                 print "Testing Error:", testError
                 print "Testing Error Normalized:", testError / parameters['batch_size']
                 print "Last loss:", last_loss / parameters['batch_size']

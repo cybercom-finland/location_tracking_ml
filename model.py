@@ -8,6 +8,7 @@ import math
 
 import tensorflow as tf
 from tensorflow.models.rnn import rnn, rnn_cell
+from tensorflow.python.ops.math_ops import real
 import numpy as np
 
 import random
@@ -39,10 +40,9 @@ def softmax_mixtures(output, n_mixtures, batch_size):
     out_pi, out_sigma, out_mu, out_rho = splitMix(output, n_mixtures, batch_size)
     # Softmaxing the weights so that they sum up to one.
     out_pi = tf.nn.softmax(out_pi)
-    # Always [-0.1, 0.1]
-    out_rho = tf.tanh(out_rho)  #tf.clip_by_value(out_rho, -0.00, 0.00)
-    out_sigma = tf.exp(out_sigma) #tf.ones([batch_size, n_mixtures, 2]) * 5.0 # 
-    #out_sigma = tf.abs(out_sigma) + 0.1
+    out_rho = tf.tanh(out_rho)
+    out_sigma = tf.clip_by_value(out_sigma, -1, 5)
+    out_sigma = tf.exp(out_sigma)
     return joinMix(out_pi, out_sigma, out_mu, out_rho, n_mixtures, batch_size)
 
 # Returns the probability density for bivariate gaussians.
@@ -55,44 +55,26 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
     mu = tf.verify_tensor_all_finite(mu, "Mu not finite!")
     y = tf.verify_tensor_all_finite(y, "Y not finite!")
     delta = tf.sub(tf.tile(tf.expand_dims(y, 1), [1, n_mixtures, 1]), mu)
-    delta = tf.Print(delta, [tf.reduce_mean(tf.abs(delta))], "Mean absolute delta: ")
-    # delta = tf.Print(delta, [tf.reduce_max(delta)], "Max of delta: ")
-    # delta = tf.Print(delta, [tf.reduce_min(delta)], "Min of delta: ")
     delta = tf.verify_tensor_all_finite(delta, "Delta not finite!")
     sigma = tf.verify_tensor_all_finite(sigma, "Sigma not finite!")
     s = tf.reduce_prod(sigma, 2)
-    #logS = tf.log(s)
-    # s >= 0
     s = tf.verify_tensor_all_finite(s, "S not finite!")
     # -1 <= rho <= 1
-    #logdelta = tf.log(tf.abs(delta) + epsilon)
-    #logrho = tf.log(tf.abs(rho) + epsilon)
-    #logsigma = tf.log(sigma)
-    #sign = tf.sign((tf.sign(tf.reduce_prod(delta, 2)) + 0.5) * (tf.sign(rho) + 0.5))
-    
     z = tf.reduce_sum(tf.square(tf.div(delta, sigma + epsilon) + epsilon), 2) - \
         2 * tf.div(tf.mul(rho, tf.reduce_prod(delta, 2)), s + epsilon)
     
-    # z = tf.reduce_sum(tf.square(tf.div(delta, sigma + epsilon)), 2) - \
-    #     2 * tf.div(tf.mul(rho, tf.reduce_prod(delta, 2)), s + epsilon)
-    # z = tf.Print(z, [tf.reduce_max(z)], "Max of z: ")
-    # z = tf.Print(z, [tf.reduce_min(z)], "Min of z: ")
     z = tf.verify_tensor_all_finite(z, "Z not finite!")
     # 0 < negRho <= 1
     rho = tf.verify_tensor_all_finite(rho, "rho in bivariate normal not finite!")
     negRho = tf.clip_by_value(1 - tf.square(rho), epsilon, 1.0)
     negRho = tf.verify_tensor_all_finite(negRho, "negRho not finite!")
-    #negRho = tf.ones([batch_size, n_mixtures]) # Uncorrelated
     # Note that if negRho goes near zero, or z goes really large, this explodes.
     negRho = tf.verify_tensor_all_finite(negRho, "negRho in bivariate normal not finite!")
-    # negRho = tf.Print(negRho, [tf.reduce_max(negRho)], "Max of negRho: ")
-    # negRho = tf.Print(negRho, [tf.reduce_min(negRho)], "Min of negRho: ")
+    
     result = tf.clip_by_value(tf.exp(tf.div(-z, 2 * negRho)), 1.0e-8, 1.0e8)
     result = tf.verify_tensor_all_finite(result, "Result in bivariate normal not finite!")
     denom = 2 * np.pi * tf.mul(s, tf.sqrt(negRho))
     denom = tf.verify_tensor_all_finite(denom, "Denom in bivariate normal not finite!")
-    # denom = tf.Print(denom, [tf.reduce_max(denom)], "Max of denom: ")
-    # denom = tf.Print(denom, [tf.reduce_min(denom)], "Min of denom: ")
     result = tf.clip_by_value(tf.div(result, denom + epsilon), epsilon, 1.0)
     result = tf.verify_tensor_all_finite(result, "Result2 in bivariate normal not finite!")
     return result, delta
@@ -100,36 +82,22 @@ def tf_bivariate_normal(y, mu, sigma, rho, n_mixtures, batch_size):
 def mixture_loss(pred, y, n_mixtures, batch_size):
     pred = tf.verify_tensor_all_finite(pred, "Pred not finite!")
     out_pi, out_sigma, out_mu, out_rho = splitMix(pred, n_mixtures, batch_size)
-    # out_rho = tf.Print(out_rho, [tf.reduce_max(out_rho)], "Max of out_rho: ")
-    # out_rho = tf.Print(out_rho, [tf.reduce_min(out_rho)], "Min of out_rho: ")
-    # out_pi = tf.Print(out_pi, [tf.reduce_max(out_pi)], "Max of out_pi: ")
-    # out_pi = tf.Print(out_pi, [tf.reduce_min(out_pi)], "Min of out_pi: ")
     result_binorm, result_delta = tf_bivariate_normal(y, out_mu, out_sigma, out_rho, n_mixtures, batch_size)
     
     result_binorm = tf.verify_tensor_all_finite(result_binorm, "Result not finite1!")
-    # result_binorm = tf.Print(result_binorm, [tf.reduce_max(result_binorm)], "Max of result_binorm: ")
-    # out_pi = tf.Print(out_pi, [tf.reduce_max(out_pi)], "Max of out_pi: ")
     result_weighted = tf.mul(result_binorm, out_pi)
-    delta_weighted = tf.mul(tf.reduce_sum(tf.square(result_delta), 2), out_pi)
     result_weighted = tf.verify_tensor_all_finite(result_weighted, "Result not finite2!")
     result_raw = tf.reduce_sum(result_weighted + epsilon, 1, keep_dims=True)
     result_raw = tf.Print(result_raw, [tf.reduce_sum(result_raw)], "Sum of weighted density. If zero, sigma is too small: ")
     result_raw = tf.Print(result_raw, [tf.reduce_max(result_raw)], "Max of weighted density. If zero, sigma is too small: ")
     result_raw = tf.verify_tensor_all_finite(result_raw, "Result not finite3!")
-    result = -tf.log(result_raw + e) + tf.reduce_mean(delta_weighted)
+    result = -tf.log(result_raw + e)
     result = tf.verify_tensor_all_finite(result, "Result not finite4!")
-    # Adding additional error terms to prevent numerical instability for flat gradients.
-    # If the optimizer is unsure and sees no gradient, increase sigma to widen the gaussians.
-    s = tf.reduce_sum(tf.square(out_sigma), 2)
-    result = tf.Print(result, [tf.reduce_mean(tf.sqrt(s + 0.1))], "Sigma. Make sure this increases if weighted density is zero: ")
-    
-    # result = result + ((1 - 100.0 * tf.minimum(tf.reduce_sum(result_raw), 0.01)) * tf.inv(s + 0.5))
     result = tf.reduce_sum(result)
-    # result = tf.Print(result, [result], "Result4: ")
     result = tf.verify_tensor_all_finite(result, "Result not finite5!")
     return result
 
-  # Returns the LSTM stack created based on the parameters.
+# Returns the LSTM stack created based on the parameters.
 # Processes several batches at once.
 # Input shape is: (parameters['batch_size'], parameters['n_steps'], parameters['n_input'])
 def RNN(parameters, input, model, initial_state):
@@ -147,35 +115,27 @@ def RNN(parameters, input, model, initial_state):
     # Reshape to prepare input to the linear layer
     input = tf.reshape(input, [-1, parameters['n_input']]) # (n_steps*batch_size, n_input)
     input = tf.verify_tensor_all_finite(input, "Input not finite3!")
-    # input = tf.Print(input, [input], "Input: ")
     
     # 1. layer, linear activation for each batch and step.
     if (model.has_key('input_weights')):
         input = tf.matmul(input, model['input_weights']) + model['input_bias']
-        input = tf.nn.dropout(input, model['keep_prob'])
-    #input = tf.reshape(input, [-1, parameters['batch_size'], parameters['input_layer']])
+        # input = tf.nn.dropout(input, model['keep_prob'])
 
     # Split data because rnn cell needs a list of inputs for the RNN inner loop,
     # that is, a n_steps length list of tensors shaped: (batch_size, n_inputs)
     # This is not well documented, but check for yourself here: https://goo.gl/NzA5pX
-    #input = input[parameters['n_steps']-1, :, :]
-    #input = tf.reshape(input, [parameters['n_steps']*parameters['batch_size'], parameters['n_input']]) # (n_steps*batch_size, n_input)
     input = tf.split(0, parameters['n_steps'], input) # n_steps * (batch_size, :)
 
     initial_state = tf.verify_tensor_all_finite(initial_state, "Initial state not finite!")
     # Note: States is shaped: batch_size x cell.state_size
     outputs, states = rnn.rnn(model['rnn_cell'], input, initial_state=initial_state)
-    # outputs[-1] = tf.nn.relu(outputs[-1])
-    lastOutput = tf.verify_tensor_all_finite(outputs[-1], "Outputs not finite!")
-    # lastOutput = tf.nn.dropout(lastOutput, model['keep_prob'])
+    #outputs[-1] = tf.Print(outputs[-1], [outputs[-1]], "LSTM Output: ", summarize = 100)
+    lastOutput = tf.verify_tensor_all_finite(outputs[-1], "LSTM Outputs not finite!")
+    #lastOutput = tf.nn.dropout(lastOutput, model['keep_prob'])
     # Only the last output is interesting for error back propagation and prediction.
     # Note that all batches are handled together here.
 
-    #model['output_bias'] = tf.clip_by_value(model['output_bias'], -100, 100)
-    #model['output_weights'] = tf.clip_by_value(model['output_weights'], -100, 100)
-    
     raw_output = tf.matmul(lastOutput, model['output_weights']) + model['output_bias']
-    #raw_output = tf.matmul(inputVal, model['output_weights']) + model['output_bias']
     raw_output = tf.verify_tensor_all_finite(raw_output, "Raw output not finite!")
     
     n_mixtures = parameters['n_mixtures']
@@ -184,9 +144,9 @@ def RNN(parameters, input, model, initial_state):
     # The number of mixtures is intuitively the number of possible actions the target can take.
     # The output is divided into triplets of n_mixtures mixture parameters for the 2 absolute position coordinates.
     output = softmax_mixtures(raw_output, n_mixtures, batch_size)
+    #output = tf.Print(output, [output], "Output: ", summarize = 100)
     output = tf.verify_tensor_all_finite(output, "Final output not finite!")
 
-    #output = tf.ones(tf.shape(output)) * 0.1
     return (output, states)
 
 # Returns the generative LSTM stack created based on the parameters.
@@ -212,9 +172,6 @@ def RNN_generative(parameters, input, model, initial_state):
     # State should be a tensor of [batch_size, depth]
     outputs, states = model['rnn_cell'](input, initial_state)
     output = tf.matmul(outputs, model['output_weights']) + model['output_bias']
-    # TODO: Sample distribution here: First select the mixture based on weights, then sample normal.
-    # Tanh for the delta components
-    #output = tf.concat(1, [raw_output[:,0:2], tf.tanh(raw_output[:,2:4])])
     return (output, states)
 
 def create(parameters):
@@ -225,23 +182,24 @@ def create(parameters):
     x = tf.verify_tensor_all_finite(x, "X not finite!")
     y = tf.placeholder(tf.float32, shape=(None, parameters['n_output']), name='expected_output')
     y = tf.verify_tensor_all_finite(y, "Y not finite!")
-    x = tf.Print(x, [x], "X: ")
-    y = tf.Print(y, [y], "Y: ")
+    #x = tf.Print(x, [x], "X: ")
+    #y = tf.Print(y, [y], "Y: ")
     lstm_state_size = np.sum(parameters['lstm_layers']) * 2
     # Note: Batch size is the first dimension in istate.
     istate = tf.placeholder(tf.float32, shape=(None, lstm_state_size), name='internal_state')
     lr = tf.placeholder(tf.float32, name='learning_rate')
 
-    # The target to track itself and its peers, each with x, y ## and velocity x and y.
+    # The target to track itself and its peers, each with x, y
     input_size = (parameters['n_peers'] + 1) * 2
     inputToRnn = parameters['input_layer']
     if (parameters['input_layer'] == None):
         inputToRnn = parameters['n_input']
 
     cells = [rnn_cell.LSTMCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn,
-                               #cell_clip=parameters['lstm_clip'],
+                               num_proj=parameters['lstm_layers'][i],
+                               cell_clip=parameters['lstm_clip'],
                                use_peepholes=True) for i,l in enumerate(parameters['lstm_layers'])] 
-    # TODO: GRUCell cupport here.
+    # TODO: GRUCell support here.
     # cells = [rnn_cell.GRUCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn) for i,l in enumerate(parameters['lstm_layers'])]
     model = {
         'input_weights': tf.Variable(tf.random_normal(
@@ -264,12 +222,12 @@ def create(parameters):
     }
     # if (parameters['input_layer'] <> None):
 
-    model['input_weights'] = tf.Print(model['input_weights'], [model['input_weights']], "Input weights: ")
-    model['input_bias'] = tf.Print(model['input_bias'], [model['input_bias']], "Input bias: ")
+    #model['input_weights'] = tf.Print(model['input_weights'], [model['input_weights']], "Input weights: ", summarize=100)
+    #model['input_bias'] = tf.Print(model['input_bias'], [model['input_bias']], "Input bias: ", summarize=100)
     model['input_weights'] = tf.verify_tensor_all_finite(model['input_weights'], "Input weights not finite!")
     model['input_bias'] = tf.verify_tensor_all_finite(model['input_bias'], "Input bias not finite!")
-    model['output_weights'] = tf.Print(model['output_weights'], [model['output_weights']], "Output weights: ")
-    model['output_bias'] = tf.Print(model['output_bias'], [model['output_bias']], "Output bias: ")
+    #model['output_weights'] = tf.Print(model['output_weights'], [model['output_weights']], "Output weights: ", summarize=100)
+    #model['output_bias'] = tf.Print(model['output_bias'], [model['output_bias']], "Output bias: ", summarize=100)
     model['output_weights'] = tf.verify_tensor_all_finite(model['output_weights'], "Output weights not finite!")
     model['output_bias'] = tf.verify_tensor_all_finite(model['output_bias'], "Output bias not finite!")
     
@@ -278,11 +236,6 @@ def create(parameters):
     tvars = tf.trainable_variables()
     avars = tf.all_variables()
     
-    #for variable in tvars:
-    #    pred = (tf.Print(pred[0], [tf.reduce_min(tf.abs(variable))], "Var " + variable.name + " zero dist: "), pred[1])
-    #    pred = (tf.Print(pred[0], [tf.reduce_max(variable)], "Var " + variable.name + " max: "), pred[1])
-    #    pred = (tf.Print(pred[0], [tf.reduce_min(variable)], "Var " + variable.name + " min: "), pred[1])
-        # variable.assign(tf.Print(variable, [tf.reduce_max(variable)]), "Var " + variable.name + " max: ")
     # Define loss and optimizer
     # We will take 1 m as the arbitrary goal post to be happy with the error.
     # The delta error is taken in squared to emphasize its importance (errors are much smaller than in absolute
@@ -290,29 +243,15 @@ def create(parameters):
     n_mixtures = parameters['n_mixtures']
     batch_size = parameters['batch_size']
     
-    # RNN/MultiRNNCell/Cell1/LSTMCell/W_O_diag
-    # RNN/MultiRNNCell/Cell1/LSTMCell/W_I_diag
-    # RNN/MultiRNNCell/Cell1/LSTMCell/W_F_diag
-    # RNN/MultiRNNCell/Cell1/LSTMCell/W_0
-    # RNN/MultiRNNCell/Cell1/LSTMCell/B
-
     cost = mixture_loss(pred[0], y, n_mixtures, batch_size)
 
-    #for variable in avars:
-    #    cost = tf.Print(cost, [variable], "Variable: " + str(variable.name) + ": ")
-
-    # The gradients go fast to infinity in certain points if not clipped.
+    # Clipping the gradients
     gradients = map(tf.to_float, tf.gradients(cost, tvars, aggregation_method = 2))
-    #for gradient in gradients:
-    #    cost = tf.Print(cost, [gradient], "Gradient: " + str(gradient.name) + ": ")
-    #grads = gradients
     grads, _ = tf.clip_by_global_norm(gradients, parameters['clip_gradients'])
-    #for gradient in grads:
-    #    gradient = tf.Print(gradient, [gradient], "Gradient after clipping: " + str(gradient.name) + ": ")
-    optimizer = tf.train.AdamOptimizer(learning_rate = parameters['learning_rate'], epsilon = 1e-6) # Adam Optimizer
-    #, epsilon=0.00001 
+    optimizer = tf.train.AdamOptimizer(learning_rate = parameters['learning_rate'])
 
     train_op = optimizer.apply_gradients(zip(grads, tvars))
+    tf.add_check_numerics_ops()
     
     model['pred'] = pred[0]
     model['last_state'] = pred[1]
@@ -344,9 +283,10 @@ def create_generative(parameters):
         inputToRnn = parameters['n_input']
 
     cells = [rnn_cell.LSTMCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn,
-                               #cell_clip=parameters['lstm_clip'],
+                               num_proj=parameters['lstm_layers'][i],
+                               cell_clip=parameters['lstm_clip'],
                                use_peepholes=True) for i,l in enumerate(parameters['lstm_layers'])] 
-    # TODO: GRUCell cupport here.
+    # TODO: GRUCell support here.
     # cells = [rnn_cell.GRUCell(l, parameters['lstm_layers'][i-1] if (i > 0) else inputToRnn) for i,l in enumerate(parameters['lstm_layers'])]
     model = {
         'input_weights': tf.Variable(tf.random_normal(
@@ -374,11 +314,6 @@ def create_generative(parameters):
     with tf.variable_scope("RNN"):
         pred = RNN_generative(parameters, x, model, istate)
     
-    # Define loss and optimizer
-    # cost = tf.reduce_mean(tf.sqrt(tf.nn.l2_loss(pred-y)) # L2 loss for regression
-    # Evaluate model. This is the average error.
-    # We will take 1 m as the arbitrary goal post to be happy with the error.
-    #error = tf.reduce_mean(tf.sqrt(0.001 + tf.reduce_sum(tf.pow(pred[0]-y, 2), 1)), 0)
     model['pred'] = pred[0]
     model['last_state'] = pred[1]
 

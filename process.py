@@ -40,9 +40,3 @@ batch_size = parameters['batch_size']
 network_model = model.create(parameters)
 # Running 6 hours.
 last_loss = train.train(parameters, network_model, trainData, testData, None, 60*6) # 'soccer-model')
-# Normalizing, because the loss is linearly cumulative against batch_size
-last_loss = last_loss / batch_size
-# Collecting results.
-print "Hyper parameter optimization, iteration: " + str(iter) + ", lr: " + \
-    str(learning_rate) + ", batch_size: " + str(batch_size) + ", loss: " + str(last_loss)
-export_to_octave.save('hyper.mat', 'hyper', np.asarray(hyper))

@@ -202,6 +202,25 @@ overfitting. Parameters need to be tuned more.
 
 Same as a video (shortened a bit, because the end does not change): [https://youtu.be/lmNsdmsUtwI](https://youtu.be/lmNsdmsUtwI)
 
+Usage
+=====
+
+You should first train the model, note that it takes 6 hours (or just use the provided pre-trained model, `soccer-model`):
+`./process.py`
+
+Then generate traces.m:
+`./generate.py`
+
+Then draw the animation frames with Octave:
+`mkdir output; octave make_animation.m`
+
+The frames will be pngs in the output directory.
+
+Then make it into a video:
+`./make_animation.sh`
+
+The result video will be `track.mp4`.
+
 Disclaimer / Warning
 ====================
 

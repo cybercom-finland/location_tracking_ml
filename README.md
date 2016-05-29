@@ -203,10 +203,14 @@ The next is the results for one peer, with the following parameters:
 
 `pos = np.asarray([[0.0, 0.0], [0.1, 1.3], [10.1, -1.3]])`
 
-![generated_tracks_for_three_players_mixed_density.png](generated_tracks_for_three_players_mixed_density.png)
+![generated_tracks_for_three_players_mixture_density.png](generated_tracks_for_three_players_mixture_density.png)
 
-It is clear that as the players are treated identically, they converge into the same local minimum. Perhaps inputting one
-arbitrarily controlled player into the system would change the behavior.
+Same as a video: [https://www.youtube.com/watch?v=woqwpRLhFm8](https://www.youtube.com/watch?v=woqwpRLhFm8)
+
+It is clear that as the players are treated identically, they converge into the same local minimum. The system is dampening by nature and
+energy is not added into it, so it converges.
+Perhaps inputting one
+arbitrarily controlled player (or a ball) into the system would change the behavior.
 
 Usage
 =====
